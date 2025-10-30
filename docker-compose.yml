@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      # Mount the current directory to /app for live code updates
+      - .:/app
+      # Use an anonymous volume to preserve the .venv from the build
+      # This prevents the host's .venv from overwriting the container's
+      - /app/.venv
+    # Override the CMD to enable auto-reloading for development
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
