@@ -21,4 +21,4 @@ services:
       # This prevents the host's .venv from overwriting the container's
       - /app/.venv
     # Override the CMD to enable auto-reloading for development
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uv run uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
