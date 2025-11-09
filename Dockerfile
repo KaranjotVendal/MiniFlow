@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     ffmpeg \
-    git
+    git \
+    libportaudio2
 
 # Use a multi-stage build to copy the uv binary
 # This is more efficient and secure than downloading it during the build
@@ -33,4 +34,4 @@ RUN uv sync --frozen
 # Use `uv run` to start the application. It will automatically find and
 # use the project's virtual environment.
 # FastAPI entrypoint
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
