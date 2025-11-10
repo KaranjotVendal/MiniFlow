@@ -114,7 +114,6 @@ def stream_dataset_samples(
         )
     except Exception as e:
         logger.warning(f"Error loading GLOBE dataset: {e}")
-        logger.info("Falling back to manual sample download")
         raise
 
     sample_accents = set()
@@ -145,10 +144,8 @@ def stream_dataset_samples(
 
             # check audio format (channels, samples)
             if audio_tensor.dim() == 1:
-                # add channel dim
                 audio_tensor = audio_tensor.unsqueeze(0)
 
-            # store sample information
             audio_sample = AudioSample(
                 audio_tensor=audio_tensor,
                 transcript=transcript,

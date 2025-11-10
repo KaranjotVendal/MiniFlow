@@ -55,10 +55,9 @@ def run_asr(audio_tensor: torch.Tensor, sampling_rate: int) -> tuple[str, float,
     pipe = pipeline(
         "automatic-speech-recognition",
         model=model_id,
-        # dtype=torch.float16,
         device=DEVICE,
     )
-    # 🔑 Critical: Set language & task to avoid detection + translation
+    # set language & task to avoid detection + translation
     pipe.model.generation_config.language = "en"
     pipe.model.generation_config.task = "transcribe"
 
@@ -111,7 +110,7 @@ def run_llm(transcription: str, history: str | None = None) -> tuple[dict, float
     )
 
     start = time.time()
-    response = pipe(prompt, max_new_tokens=50, do_sample=False)
+    response = pipe(prompt, max_new_tokens=100, do_sample=False)
     latency = time.time() - start
 
     generated_text = response[0]["generated_text"]
@@ -125,7 +124,9 @@ def run_llm(transcription: str, history: str | None = None) -> tuple[dict, float
 
 
 def run_tts(
-    text: str, reference_audio_tensor: torch.Tensor, reference_sampling_rate: int
+    llm_response: str,
+    reference_audio_tensor: torch.Tensor,
+    reference_sampling_rate: int,
 ) -> tuple[str, float, int, float, float]:
     from pathlib import Path
 
@@ -141,7 +142,8 @@ def run_tts(
     tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(DEVICE)
 
     start = time.time()
-    waveform = tts.tts(text=text, speaker="Gracie Wise", language="en")
+    # NOTE: can synthesize with the the original speaker's voice as well (need to test it)
+    waveform = tts.tts(text=llm_response, speaker="Gracie Wise", language="en")
     latency = time.time() - start
 
     output_sampling_rate: int = tts.synthesizer.output_sample_rate
@@ -155,12 +157,12 @@ def run_tts(
     with patch("torch.utils.data.DataLoader", side_effect=dataloader_no_workers):
         mos = utmos_model.predict(input_path=temp_tts_wav)
     temp_tts_wav.unlink()
+    reference_wav.unlink()
 
     tts_gpu_util = get_gpu_util()
 
     # clean up
-    # reference_wav.unlink()
-    # clear_gpu_cache()
+    clear_gpu_cache()
     return waveform, latency, output_sampling_rate, mos, tts_gpu_util
 
 
@@ -260,10 +262,4 @@ def main(num_samples: int = 3):
 
 
 if __name__ == "__main__":
-    try:
-        start = time.time()
-        main(num_samples=3)
-        latency = time.time() - start
-        logger.info(f"Total latency to run the whole loop: {latency}s")
-    except Exception as e:
-        logger.warning(f"encountered an error: {e}")
+    main(num_samples=3)

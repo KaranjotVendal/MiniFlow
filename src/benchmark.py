@@ -9,17 +9,15 @@ from src.logger.logging import initialise_logger
 logger = initialise_logger(__name__)
 
 
-def run_benchmark(num_samples: int = 10, run_id: str = "benchmark"):
+def run_benchmark(
+    num_samples: int = 10, run_id: str = "benchmark", folder: str = "benchmark"
+):
     results = []
     total_start = time.time()
 
     for i, sample in enumerate(stream_dataset_samples(num_samples=num_samples)):
-        print("=============")
-        print(i)
-        print("++++++++++++++++")
-
         processed_sample, metrics = process_sample(
-            sample, run_id=f"metrics_{run_id}_{i + 1}", folder="benchmark"
+            sample, run_id=f"metrics_{run_id}_{i + 1}", folder=folder
         )
         results.append((processed_sample, metrics))
 
@@ -58,5 +56,4 @@ def run_benchmark(num_samples: int = 10, run_id: str = "benchmark"):
 
 
 if __name__ == "__main__":
-    # clear_gpu_cache()
     summary = run_benchmark(num_samples=10)
