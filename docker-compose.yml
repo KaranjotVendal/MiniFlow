@@ -1,7 +1,7 @@
-version: "3.8"
-
 services:
   api:
+    environment:
+      - COQUI_TOS_AGREED=1
     build:
       context: .
       dockerfile: Dockerfile
