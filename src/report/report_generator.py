@@ -2,7 +2,11 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from src.report.plotting import save_bar_plot, save_line_plot, save_latency_percentiles_plot
+from src.report.plotting import (
+    save_bar_plot,
+    save_line_plot,
+    save_latency_percentiles_plot,
+)
 
 
 def generate_experiment_report(exp_folder: str | Path):
@@ -21,7 +25,7 @@ def generate_experiment_report(exp_folder: str | Path):
     latency_vals = {
         "ASR": summary["asr_latency"]["mean"],
         "LLM": summary["llm_latency"]["mean"],
-        "TTS": summary["tts_latency"]["mean"]
+        "TTS": summary["tts_latency"]["mean"],
     }
 
     # latency plot
@@ -29,7 +33,7 @@ def generate_experiment_report(exp_folder: str | Path):
         values=latency_vals,
         title="Mean Latency Breakdown",
         ylabel="Latency (s)",
-        output_path=plots_dir / "latency_breakdown.png"
+        output_path=plots_dir / "latency_breakdown.png",
     )
 
     # memory plot
@@ -42,7 +46,7 @@ def generate_experiment_report(exp_folder: str | Path):
                 d = json.loads(line)
                 memory_vals.append(d["llm_gpu_peak_mem"])
                 latency_samples.append(d["total_latency"])
-                turn.append(i+1)
+                turn.append(i + 1)
 
     if memory_vals:
         save_line_plot(
@@ -51,16 +55,15 @@ def generate_experiment_report(exp_folder: str | Path):
             title="LLM GPU Peak Memory Per Trial",
             xlabel="Trial",
             ylabel="Peak Memory (MB)",
-            output_path=plots_dir / "memory_llm.png"
+            output_path=plots_dir / "memory_llm.png",
         )
 
     if latency_samples:
         save_latency_percentiles_plot(
             samples=latency_samples,
             title="End-to-End latency CDF",
-            output_path= plots_dir / "latency_cdf.png")
-
-
+            output_path=plots_dir / "latency_cdf.png",
+        )
 
     # Markdown report
     md = []

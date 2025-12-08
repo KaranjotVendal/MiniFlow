@@ -6,6 +6,7 @@ import shutil
 try:
     # preferred: install `markdown` package (pip install markdown)
     import markdown as md
+
     HAVE_MARKDOWN = True
 except Exception:
     HAVE_MARKDOWN = False
@@ -14,7 +15,7 @@ except Exception:
 def _embed_image_tag(img_path: Path) -> str:
     """Return HTML <img> tag with image data URI (embedded)"""
     img_bytes = img_path.read_bytes()
-    ext = img_path.suffix.lower().lstrip('.')
+    ext = img_path.suffix.lower().lstrip(".")
     mime = "image/png" if ext == "png" else f"image/{ext}"
     b64 = base64.b64encode(img_bytes).decode("ascii")
     return f'<img src="data:{mime};base64,{b64}" alt="{img_path.name}" style="max-width:100%;height:auto;" />'
@@ -23,7 +24,7 @@ def _embed_image_tag(img_path: Path) -> str:
 def convert_markdown_to_html(md_text: str) -> str:
     if HAVE_MARKDOWN:
         # use python-markdown for better fidelity
-        return md.markdown(md_text, extensions=['fenced_code', 'tables', 'toc'])
+        return md.markdown(md_text, extensions=["fenced_code", "tables", "toc"])
     # fallback: a very small converter for common elements
     lines = md_text.splitlines()
     out = []
@@ -47,13 +48,17 @@ def convert_markdown_to_html(md_text: str) -> str:
             start = line.find("![](") + 4
             end = line.find(")", start)
             path = line[start:end]
-            out.append(f'<img src="{path}" alt="" style="max-width:100%;height:auto;" />')
+            out.append(
+                f'<img src="{path}" alt="" style="max-width:100%;height:auto;" />'
+            )
         else:
             out.append(f"<p>{line}</p>")
     return "\n".join(out)
 
 
-def generate_html_report_from_md(exp_dir: str | Path, md_filename: str = "report.md") -> Path:
+def generate_html_report_from_md(
+    exp_dir: str | Path, md_filename: str = "report.md"
+) -> Path:
     exp_dir = Path(exp_dir)
     md_path = exp_dir / md_filename
     if not md_path.exists():

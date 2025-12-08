@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
+
 def save_bar_plot(values: dict, title: str, ylabel: str, output_path: Path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -13,7 +14,7 @@ def save_bar_plot(values: dict, title: str, ylabel: str, output_path: Path):
     plt.bar(names, vals)
     plt.title(title)
     plt.ylabel(ylabel)
-    plt.grid(axis='y', linestyle="--", alpha=0.5)
+    plt.grid(axis="y", linestyle="--", alpha=0.5)
 
     plt.tight_layout()
     plt.savefig(output_path)
@@ -47,8 +48,8 @@ def save_latency_percentiles_plot(samples: list, title: str, output_path: Path):
 
     # empirical CDF
     y = np.arange(1, len(arr) + 1) / len(arr)
-    plt.figure(figsize=(8,5))
-    plt.step(arr, y, where='post')
+    plt.figure(figsize=(8, 5))
+    plt.step(arr, y, where="post")
     plt.xlabel("Latency (s)")
     plt.ylabel("CDF")
     plt.title(title)
@@ -59,9 +60,21 @@ def save_latency_percentiles_plot(samples: list, title: str, output_path: Path):
     p95 = np.percentile(arr, 95)
     p99 = np.percentile(arr, 99)
 
-    for val, label, color in [(p50, "p50", "green"), (p95, "p95", "orange"), (p99, "p99", "red")]:
-        plt.axvline(val, linestyle='--', color=color, linewidth=1)
-        plt.text(val, 0.05, f"{label}={val:.3f}s", rotation=90, color=color, va='bottom', ha='right')
+    for val, label, color in [
+        (p50, "p50", "green"),
+        (p95, "p95", "orange"),
+        (p99, "p99", "red"),
+    ]:
+        plt.axvline(val, linestyle="--", color=color, linewidth=1)
+        plt.text(
+            val,
+            0.05,
+            f"{label}={val:.3f}s",
+            rotation=90,
+            color=color,
+            va="bottom",
+            ha="right",
+        )
 
     plt.tight_layout()
     plt.savefig(output_path)

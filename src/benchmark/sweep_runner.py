@@ -49,17 +49,18 @@ def run_sweep(sweep_config_path: str | Path):
         _config = inspect_config(config_path)
         summary = run_benchmark(_config)
 
-        sweep_results.append({
-            "experiment": exp_name,
-            "config_path": str(config_path),
-            "summary": summary
-        })
+        sweep_results.append(
+            {
+                "experiment": exp_name,
+                "config_path": str(config_path),
+                "summary": summary,
+            }
+        )
 
         exp_dir = sweep_folder / exp_name
         exp_dir.mkdir(exist_ok=True)
         with open(exp_dir / "summary.json", "w") as f:
             json.dump(summary, f, indent=2)
-
 
     logger.info("Building sweep summary...")
 
@@ -72,20 +73,22 @@ def run_sweep(sweep_config_path: str | Path):
     sweep_summary = {
         "sweep_name": sweep_name,
         "timestamp": timestamp,
-        "experiments": []
+        "experiments": [],
     }
 
     for r in sweep_results:
         exp_summary = r["summary"]
-        sweep_summary["experiments"].append({
-            "experiment": r["experiment"],
-            "asr_latency_mean": numeric(exp_summary["asr_latency"]),
-            "llm_latency_mean": numeric(exp_summary["llm_latency"]),
-            "tts_latency_mean": numeric(exp_summary["tts_latency"]),
-            "total_latency_mean": numeric(exp_summary["total_latency"]),
-            "asr_wer_mean": exp_summary["asr_wer_mean"],
-            "tts_utmos_mean": exp_summary["tts_utmos_mean"]
-        })
+        sweep_summary["experiments"].append(
+            {
+                "experiment": r["experiment"],
+                "asr_latency_mean": numeric(exp_summary["asr_latency"]),
+                "llm_latency_mean": numeric(exp_summary["llm_latency"]),
+                "tts_latency_mean": numeric(exp_summary["tts_latency"]),
+                "total_latency_mean": numeric(exp_summary["total_latency"]),
+                "asr_wer_mean": exp_summary["asr_wer_mean"],
+                "tts_utmos_mean": exp_summary["tts_utmos_mean"],
+            }
+        )
 
     with open(sweep_folder / "sweep_summary.json", "w") as f:
         json.dump(sweep_summary, f, indent=2)

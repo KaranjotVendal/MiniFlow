@@ -11,5 +11,6 @@ def get_test_sample():
         return sample
     raise ValueError("No sample streamed from dataset")
 
+
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available else "cpu")

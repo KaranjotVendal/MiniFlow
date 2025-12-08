@@ -8,6 +8,7 @@ import subprocess
 
 GPU_MEM_BLOCK = 1024 * 1024
 
+
 def get_gpu_memory_reserved(device: int = 0) -> int:
     """returns the current reserved GPU memory in MB"""
     torch.cuda.synchronize(device)
@@ -26,7 +27,7 @@ def get_gpu_memory_peak(device: int = 0) -> int:
     return torch.cuda.max_memory_reserved(device) // GPU_MEM_BLOCK
 
 
-def reset_peak_memory(device: int = None) -> None:
+def reset_peak_memory(device: None = None) -> None:
     """reset pytorch peak memory tracker. call before measuring each stage."""
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats(device)
@@ -34,11 +35,16 @@ def reset_peak_memory(device: int = None) -> None:
     raise "CUDA not available."
 
 
-
 class GPUSampler:
     """Background GPU memory sampler using nvidia-smi.
     Records true memory usage including non-pytorch allocations."""
-    def __init__(self, interval: int = 0.05, gpu_id: int = 0, output_file: Path = None) -> None:
+
+    def __init__(
+        self,
+        interval: int | float = 0.05,
+        gpu_id: int = 0,
+        output_file: Path | None = None,
+    ) -> None:
         self.interval = interval
         self.gpu_id = gpu_id
         self.output_file = Path(output_file) if output_file else None
@@ -65,7 +71,7 @@ class GPUSampler:
                     "--query-gpu=memory.used",
                     "--format=csv,noheader,nounits",
                     "-i",
-                    str(self.gpu_id)
+                    str(self.gpu_id),
                 ]
             )
             return int(result.decode("utf-8").strip())

@@ -2,6 +2,7 @@ import argparse
 
 from src.report.sweep_report_generator import generate_sweep_report
 
+
 def main():
     parser = argparse.ArgumentParser(description="Generate sweep report")
     parser.add_argument("--sweep_dir", required=True)

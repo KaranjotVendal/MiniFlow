@@ -11,7 +11,9 @@ logger = initialise_logger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Run an experiment from yaml config.")
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--dry-run", action="store_true", help="when enabled only prints config")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="when enabled only prints config"
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -27,6 +29,7 @@ def main():
     summary = run_benchmark(config)
     logger.info("Experiment complete.")
     logger.info(f"Summary:\n{summary}")
+
 
 if __name__ == "__main__":
     main()

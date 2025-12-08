@@ -22,7 +22,6 @@ def run_benchmark(config: dict) -> dict:
     exp_dir = Path(f"Benchmark/{exp_name}/{run_id}")
     exp_dir.mkdir(parents=True, exist_ok=True)
 
-
     # saving config inside experiment folder
     with open(exp_dir / "config.yml", "w") as f:
         yaml.dump(config, f)
@@ -35,29 +34,30 @@ def run_benchmark(config: dict) -> dict:
         "timestamp": time.time(),
         "num_samples": num_samples,
         "warmup": warmup_samples,
-        "dataset_split": dataset_split
+        "dataset_split": dataset_split,
     }
 
-    with open(exp_dir/"metadata.json", "w") as f:
+    with open(exp_dir / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
     logger.info(f"created experiment directory: {exp_dir}")
 
     # warmup runs
     logger.info(f"Running {warmup_samples} warmup samples...")
-    warmup_iter = stream_dataset_samples(num_samples=warmup_samples, split=dataset_split)
+    warmup_iter = stream_dataset_samples(
+        num_samples=warmup_samples, split=dataset_split
+    )
     for i, sample in enumerate(warmup_iter):
-        process_sample(sample,
-            config=config,
-            run_id=f"warmup{i+1}",
-            folder=exp_dir)
+        process_sample(sample, config=config, run_id=f"warmup{i + 1}", folder=exp_dir)
 
     logger.info("warmup complete.\n")
 
     # benchmark runs
     results = []
-    for i, sample in enumerate(stream_dataset_samples(num_samples=num_samples, split=dataset_split)):
-        trial_id = f"trail_{i+1}"
+    for i, sample in enumerate(
+        stream_dataset_samples(num_samples=num_samples, split=dataset_split)
+    ):
+        trial_id = f"trail_{i + 1}"
         logger.info(f"Running {trial_id}")
 
         processed, metrics = process_sample(
@@ -65,10 +65,11 @@ def run_benchmark(config: dict) -> dict:
             config=config,
             run_id=trial_id,
             folder=exp_dir,
-            jsonl_file=raw_logs_path)
+            jsonl_file=raw_logs_path,
+        )
 
         md = metrics.to_dict()
-        md["trial"] = i+ 1
+        md["trial"] = i + 1
         results.append(md)
 
     logger.info("Benchmark run complete.\n")
@@ -82,7 +83,7 @@ def run_benchmark(config: dict) -> dict:
             "mean": mean(arr),
             "median": median(arr),
             "p95": s[int(0.95 * len(s))],
-            "p99": s[int(0.99 * len(s))]
+            "p99": s[int(0.99 * len(s))],
         }
 
     summary = {
@@ -94,7 +95,7 @@ def run_benchmark(config: dict) -> dict:
         "tts_latency": aggregate("tts_latency"),
         "total_latency": aggregate("total_latency"),
         "asr_wer_mean": mean([r["asr_wer"] for r in results]),
-        "tts_utmos_mean": mean([r["tts_utmos"] for r in results])
+        "tts_utmos_mean": mean([r["tts_utmos"] for r in results]),
     }
 
     with open(exp_dir / "summary.json", "w") as f:

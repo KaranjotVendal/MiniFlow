@@ -45,7 +45,7 @@ class Metrics:
 def log_metrics(run_id: str, metrics: Metrics, folder: str = "./") -> None:
     filename = Path(f"{folder}/{run_id}.json")
     filename.parent.mkdir(exist_ok=True, parents=True)
-    metrics_dict = asdict(metrics) #.to_dict()
+    metrics_dict = asdict(metrics)  # .to_dict()
     metrics_dict["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
     metrics_dict["run_id"] = run_id
     with open(filename, "a") as f:
@@ -57,5 +57,5 @@ def log_metrics(run_id: str, metrics: Metrics, folder: str = "./") -> None:
 def log_jsonl(metrics_dict: dict, filepath: str):
     path = Path(filepath)
     path.parent.mkdir(exist_ok=True, parents=True)
-    with open(path, 'a') as f:
-        f.write(json.dumps(metrics_dict) +"\n")
+    with open(path, "a") as f:
+        f.write(json.dumps(metrics_dict) + "\n")

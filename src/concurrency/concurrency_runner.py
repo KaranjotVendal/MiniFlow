@@ -27,11 +27,18 @@ import requests
 import statistics
 import math
 
+
 def _call_http(endpoint: str, audio_bytes: bytes, timeout=60):
     start = time.time()
-    r = requests.post(endpoint, data=audio_bytes, headers={"Content-Type":"audio/wav"}, timeout=timeout)
+    r = requests.post(
+        endpoint,
+        data=audio_bytes,
+        headers={"Content-Type": "audio/wav"},
+        timeout=timeout,
+    )
     latency = time.time() - start
     return r.status_code, latency, r.text[:200]
+
 
 def _call_inproc(fn: Callable, sample, timeout=None):
     start = time.time()
@@ -62,7 +69,9 @@ def run_concurrency_test(
 
     # create worker pool
     total_requests = concurrency * requests_per_worker
-    print(f"Starting concurrency test: mode={mode} concurrency={concurrency} total_requests={total_requests}")
+    print(
+        f"Starting concurrency test: mode={mode} concurrency={concurrency} total_requests={total_requests}"
+    )
 
     tasks = []
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
@@ -85,10 +94,19 @@ def run_concurrency_test(
                     status, latency, resp = fut.result()
                     latencies.append(latency)
                     statuses.append(status)
-                    rec = {"status": status, "latency": latency, "timestamp": time.time()}
+                    rec = {
+                        "status": status,
+                        "latency": latency,
+                        "timestamp": time.time(),
+                    }
                     f.write(json.dumps(rec) + "\n")
                 except Exception as e:
-                    rec = {"status": "error", "latency": None, "error": str(e), "timestamp": time.time()}
+                    rec = {
+                        "status": "error",
+                        "latency": None,
+                        "error": str(e),
+                        "timestamp": time.time(),
+                    }
                     f.write(json.dumps(rec) + "\n")
 
     # simple aggregation
@@ -112,11 +130,11 @@ def np_percentile(arr, p):
     if not arr:
         return None
     arr = sorted(arr)
-    k = (len(arr)-1) * (p/100.0)
+    k = (len(arr) - 1) * (p / 100.0)
     f = math.floor(k)
     c = math.ceil(k)
     if f == c:
         return arr[int(k)]
-    d0 = arr[int(f)] * (c-k)
-    d1 = arr[int(c)] * (k-f)
+    d0 = arr[int(f)] * (c - k)
+    d1 = arr[int(c)] * (k - f)
     return d0 + d1

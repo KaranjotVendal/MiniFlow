@@ -63,9 +63,9 @@ class ProcessedSample:
         }
 
 
-def run_asr(config: dict | None,
-    audio_tensor: torch.Tensor,
-    sampling_rate: int) -> tuple[str, float, float]:
+def run_asr(
+    config: dict | None, audio_tensor: torch.Tensor, sampling_rate: int
+) -> tuple[str, float, float]:
     logger.info("executing STT model")
     logger.info(f"DEVICE: {DEVICE}")
     # model_id = "openai/whisper-small"
@@ -80,10 +80,10 @@ def run_asr(config: dict | None,
         device=DEVICE,
         return_timestamps=False,
         generate_kwargs={
-               "language": "en",
-               "task": "transcribe",
-               "forced_decoder_ids": None,  # 👈 Explicitly disable legacy mechanism
-           }
+            "language": "en",
+            "task": "transcribe",
+            "forced_decoder_ids": None,  # 👈 Explicitly disable legacy mechanism
+        },
     )
 
     audio = {"array": audio_tensor.squeeze().numpy(), "sampling_rate": sampling_rate}
@@ -107,7 +107,7 @@ def _quant_config(config: dict):
         load_in_4bit=q["load_in_4bit"],
         bnb_4bit_quant_type=q["quant_type"],
         bnb_4bit_use_double_quant=q["use_double_quant"],
-        bnb_4bit_compute_dtype=DTYPE_MAP[q["compute_dtype"]] #torch.bfloat16,
+        bnb_4bit_compute_dtype=DTYPE_MAP[q["compute_dtype"]],  # torch.bfloat16,
     )
     return quant_config
 
@@ -125,9 +125,9 @@ def _build_history(history: list[dict] | None, transcription):
     return prompt
 
 
-def run_llm(config: dict | None,
-    transcription: str,
-    history: str | None = None) -> tuple[dict, float, list, float]:
+def run_llm(
+    config: dict | None, transcription: str, history: str | None = None
+) -> tuple[dict, float, list, float]:
     """loads an llm, generates response to transcription and offloads."""
     logger.info("executing LLM model")
     logger.info(f"DEVICE: {DEVICE}")
@@ -147,7 +147,7 @@ def run_llm(config: dict | None,
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        use_cache=config["kv_cache"]
+        use_cache=config["kv_cache"],
     )
 
     prompt = _build_history(history=history, transcription=transcription)
@@ -222,7 +222,7 @@ def process_sample(
     stream_audio: bool = False,
     run_id: str = "baseline",
     folder: str = "./",
-    jsonl_file: str | None = None
+    jsonl_file: str | None = None,
 ) -> tuple[ProcessedSample, Metrics]:
     """End-to-End processing for one audio sample"""
     audio_tensor = sample.audio_tensor
@@ -233,15 +233,21 @@ def process_sample(
 
     timestamp_start = time.time()
     # ASR
-    transcript, asr_latency, asr_gpu_peak_mem = run_asr(config["asr"], audio_tensor, sampling_rate)
+    transcript, asr_latency, asr_gpu_peak_mem = run_asr(
+        config["asr"], audio_tensor, sampling_rate
+    )
     asr_wer = jiwer.wer(groundtruth.lower(), transcript.lower())
 
     # LLM
-    response, llm_latency, new_history, llm_gpu_peak_mem = run_llm(config["llm"], transcript, history)
+    response, llm_latency, new_history, llm_gpu_peak_mem = run_llm(
+        config["llm"], transcript, history
+    )
 
     # TTS (can optionally use input audio as reference for voice)
     tts_waveform, tts_latency, output_sample_rate, mos, tts_gpu_peak_mem = run_tts(
-        config=config["tts"], llm_response=response, device=DEVICE
+        config=config["tts"],
+        llm_response=response,
+        device=DEVICE,
         # , audio_tensor, sampling_rate
     )
     tts_waveform: list
@@ -288,6 +294,7 @@ def process_sample(
 
     if jsonl_file:
         from src.metrics import log_jsonl
+
         log_jsonl(metrics.to_dict(), jsonl_file)
     else:
         log_metrics(run_id=run_id, metrics=metrics, folder=folder)
