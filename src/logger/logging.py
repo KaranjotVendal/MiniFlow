@@ -11,7 +11,7 @@ def initialise_logger(name: str, overwrite_level=None) -> logging.Logger:
     logger.setLevel(logging_level)
 
     formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)s | %(message)s | %(name)s | %(funcName)s"
+        "%(levelname)s | %(message)s | %(asctime)s | %(name)s | %(funcName)s"
     )
 
     # File handler

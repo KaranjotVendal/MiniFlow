@@ -1,0 +1,33 @@
+experiment:
+  name: baseline
+  description: "Default pipeline with STT -> LLM -> TTS"
+
+dataset:
+  name: globe
+  split: test
+  num_samples: 20
+  warmup_samples: 3
+
+asr:
+  model_id: "openai/whisper-small"
+
+llm:
+  model_id: "Qwen/Qwen2.5-3B-Instruct"
+  quantization:
+    enabled: true
+    load_in_4bit: true
+    quant_type: "nf4"
+    use_double_quant: true
+    compute_dtype: "bf16"
+  kv_cache: false
+  max_new_tokens: 100
+
+tts:
+  model_name: "xtts"
+  model_id: "tts_models/multilingual/multi-dataset/xtts_v2"
+  speaker: "Gracie Wise"
+  language: "en"
+
+benchmark:
+  enable_streaming_audio: false
+  save_processed_samples: false

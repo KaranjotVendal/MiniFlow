@@ -1,11 +1,11 @@
 import time
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
-from torch.utils.data.dataset import IterableDataset
 import torchaudio
 from datasets import load_dataset
+from torch.utils.data.dataset import IterableDataset
 
 from src.logger.logging import initialise_logger
 
@@ -103,14 +103,14 @@ def download_globe_samples(num_samples=10) -> list[AudioSample]:
 
 
 def stream_dataset_samples(
-    num_samples: int = 10, accent_filter: str | None = None
+    num_samples: int = 10, split: str = "train", accent_filter: str | None = None
 ) -> AudioSample:
     """returns sample"""
     logger.info("streaming samples GLOBE dataset ...")
 
     try:
         dataset: IterableDataset = load_dataset(
-            "MushanW/GLOBE_V3", split="train", streaming=True
+            "MushanW/GLOBE_V3", split=split, streaming=True
         )
     except Exception as e:
         logger.warning(f"Error loading GLOBE dataset: {e}")

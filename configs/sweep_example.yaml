@@ -1,0 +1,8 @@
+sweep_name: "my_first_sweep"
+
+sweep:
+  - configs/baseline.yml
+  - configs/1_TTS-to-cosyvoice.yml
+  - configs/2_TTS-to-vibevoice.yml
+
+output_dir: "sweeps"   # optional, default is ./sweeps
