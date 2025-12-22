@@ -12,6 +12,7 @@ dependencies = [
     "fastapi[standard]>=0.120.2",
     "jiwer>=4.0.0",
     "jupyter>=1.1.1",
+    "matplotlib>=3.10.7",
     "pytest>=8.4.2",
     "sounddevice>=0.5.3",
     "soundfile>=0.13.1",

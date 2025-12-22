@@ -6,18 +6,24 @@ Entry point for both:
   • WebSocket /ws endpoint for low-latency streaming audio interaction
 """
 
-import io
 import base64
+import io
 
+import soundfile as sf
 import torch
 import torchaudio
-import soundfile as sf
-from fastapi import FastAPI, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import JSONResponse
 
+from src.sts_pipeline import process_sample
 from src.logger.logging import initialise_logger
 from src.prepare_data import AudioSample
-from src.baseline_pipeline import process_sample
 
 logger = initialise_logger(__name__)
 
@@ -70,14 +76,14 @@ async def speech_to_speech(audio_file: UploadFile):
             utmos=None,
             sampling_rate=sampling_rate,
         )
-        result, metrics = process_sample(sample)
+        result, metrics = process_sample(sample, folder="./metrics")
 
         # Encode output waveform to base64 WAV for JSON transport
         buffer = io.BytesIO()
         sf.write(
             buffer,
-            result.tts_wavform,
-            result.tts_wavform_output_sr,
+            result.tts_waveform,
+            result.tts_waveform_output_sr,
             format="WAV",
         )
         wav_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -87,7 +93,7 @@ async def speech_to_speech(audio_file: UploadFile):
             "response": result.llm_response,
             "tts_wavform": wav_base64,
             "wer": metrics.asr_wer,
-            "mos": metrics.utmosl,
+            "mos": metrics.tts_utmos,
             "latencies": {
                 "asr": metrics.asr_latency,
                 "llm": metrics.llm_latency,
@@ -95,9 +101,9 @@ async def speech_to_speech(audio_file: UploadFile):
                 "total": metrics.total_latency,
             },
             "gpu_util": {
-                "asr": metrics.asr_gpu_util,
-                "llm": metrics.llm_gpu_util,
-                "tts": metrics.tts_gpu_util,
+                "asr": metrics.asr_gpu_peak_mem,
+                "llm": metrics.llm_gpu_peak_mem,
+                "tts": metrics.tts_gpu_peak_mem,
             },
         }
         return JSONResponse(response_payload)
