@@ -14,3 +14,7 @@ def get_test_sample():
 
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available else "cpu")
+
+
+def clear_gpu_cache():
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None

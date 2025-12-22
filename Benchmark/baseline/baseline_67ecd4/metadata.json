@@ -1,0 +1,8 @@
+{
+  "experiment": "baseline",
+  "run_id": "baseline_67ecd4",
+  "timestamp": 1765203203.4555144,
+  "num_samples": 20,
+  "warmup": 3,
+  "dataset_split": "test"
+}
