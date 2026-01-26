@@ -51,26 +51,26 @@ MiniFlow's speech-to-speech pipeline has been benchmarked using two different TT
 
 ## Roadmap
 
-### ✅ Completed - Pipeline Stages
+### done - Pipeline Stages
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **ASR (Automatic Speech Recognition)** | ✅ Done | Whisper-small model with forced decoder IDs for English transcription |
-| **LLM ** | ✅ Done | Qwen2.5-3B-Instruct with 4-bit quantization (nf4) |
-| **TTS - XTTS** | ✅ Done | Coqui TTS multi-lingual model with voice cloning |
-| **TTS - VibeVoice** | ✅ Done | Microsoft VibeVoice-Realtime-0.5B with streaming support |
-| **Transformers Compatibility** | Done | Bridging VibeVoice (transformers 4.51.3) with MiniFlow (4.57.3) via compatibility shims |
-| **Benchmark Framework** | ✅ Done | Structured experiment runner with metrics tracking |
-| **Configuration System** | ✅ Done | YAML-based config files for different pipeline modes |
+| **ASR (Automatic Speech Recognition)** | done | Whisper-small model with forced decoder IDs for English transcription |
+| **LLM ** | done | Qwen2.5-3B-Instruct with 4-bit quantization (nf4) |
+| **TTS - XTTS** | done | Coqui TTS multi-lingual model with voice cloning |
+| **TTS - VibeVoice** | done | Microsoft VibeVoice-Realtime-0.5B with streaming support |
+| **Transformers Compatibility** | done | Bridging VibeVoice (transformers 4.51.3) with MiniFlow (4.57.3) via compatibility shims |
+| **Benchmark Framework** | done | Structured experiment runner with metrics tracking |
+| **Configuration System** | done | YAML-based config files for different pipeline modes |
 
-### 🚧 In Progress - Optimizations
+### in progress - Optimizations
 
 | Item | Status | Description |
 |------|--------|-------------|
-| **Memory Fragmentation Investigation** | 🚧 Active | Analyzing GPU memory patterns between TTS models to understand performance variations |
+| **Memory Fragmentation Investigation** | in progress | Analyzing GPU memory patterns between TTS models to understand performance variations |
 
 
-### 📅 Planned - Future Improvements
+### planned - Future Improvements
 
 | Item | Priority | Description |
 |------|----------|-------------|
