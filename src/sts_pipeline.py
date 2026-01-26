@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass
-from unittest.mock import patch
 from pathlib import Path
 
 import jiwer

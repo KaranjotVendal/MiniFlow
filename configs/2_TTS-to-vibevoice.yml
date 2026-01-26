@@ -1,0 +1,34 @@
+experiment:
+  name: baseline
+  description: "Replacing current TTS model: XTTS with vibevoice"
+
+dataset:
+  name: globe
+  split: test
+  num_samples: 20
+  warmup_samples: 3
+
+asr:
+  model_id: "openai/whisper-small"
+
+llm:
+  model_id: "Qwen/Qwen2.5-3B-Instruct"
+  quantization:
+    enabled: true
+    load_in_4bit: true
+    quant_type: "nf4"
+    use_double_quant: true
+    compute_dtype: "bf16"
+  kv_cache: false
+  max_new_tokens: 100
+
+tts:
+  model_name: vibevoice
+  model_id: "microsoft/VibeVoice-Realtime-0.5B"
+  cfg_scale: 1.5
+  speaker: ""
+  language: "en"
+
+benchmark:
+  enable_streaming_audio: false
+  save_processed_samples: false
