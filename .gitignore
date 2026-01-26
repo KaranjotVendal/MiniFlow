@@ -11,3 +11,13 @@ wheels/
 
 ./data_assets
 Benchmark/
+
+.zed
+globe_samples/
+metrics/
+sanity/
+
+src/.ipynb_checkpoints/
+
+*.log
+*.wav
