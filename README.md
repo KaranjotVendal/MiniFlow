@@ -1,6 +1,6 @@
 **Title: MiniFlow: Low-Latency Speech-to-Speech Agent with Accent-Robust Optimizations**
 
-**Vision:** Develop an end-to-end, real-time speech-to-speech conversational agent that handles diverse accents with low latency, showcasing advanced transformer optimizations for production-grade Voice AI.
+**Vision:** Develop an end-to-end, real-time speech-to-speech conversational agent that handles diverse accents with low latency, showcasing advanced transformer optimizations for production-grade Voice AI. The biggest thing I am trying to get done through this project is get an end-to-end working on a GPU with 6gb vram.
 
 ---
 
