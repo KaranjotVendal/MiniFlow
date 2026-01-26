@@ -3,7 +3,7 @@
 ## Overview
 This document describes the bug fixes applied to resolve compatibility issues between the VibeVoice TTS model (originally developed for transformers 4.51.3) and transformers 4.57.3.
 
-## ⚠️ Root Cause: Major Transformers Version Upgrade
+## ⚠️ Root Cause: Transformers Version Upgrade
 
 ### The Original Problem
 **VibeVoice was built for `transformers==4.51.3` but your project uses `transformers==4.57.3`**
@@ -14,7 +14,7 @@ Original: transformers==4.51.3  (vibevoice compatibility)
 Your project: transformers==4.57.3  (caused breakage)
 ```
 
-This **major version jump (4.54.x → 4.57.x)** introduced breaking changes:
+This **version jump (4.51.3 → 4.57.3)** introduced breaking changes:
 - **API changes**: New methods required (`get_text_config()`)
 - **Data structure changes**: DynamicCache format completely overhauled
 - **Internal refactoring**: How transformers handles nested configs changed
@@ -51,9 +51,9 @@ AutoModel.from_pretrained()
 
 ### Issue 2: DynamicCache Serialization Format Changed
 
-**Why this broke:** Between transformers 4.x and 5.x, the cache structure was fundamentally redesigned.
+**Why this broke:** Between transformers 4.51.3 and 4.57.3, the cache structure was redesigned.
 
-**Old format (transformers 4.x - what voice files contain):**
+**Old format (transformers 4.51.3 - what voice files contain):**
 ```python
 cache = DynamicCache()
 cache.key_cache = [layer0_keys, layer1_keys, ...]  # List of tensors
@@ -61,7 +61,7 @@ cache.value_cache = [layer0_values, layer1_values, ...]  # List of tensors
 # No 'layers' attribute
 ```
 
-**New format (transformers 4.57.x - what code expects):**
+**New format (transformers 4.57.3 - what code expects):**
 ```python
 cache = DynamicCache()
 cache.layers = [DynamicLayer, DynamicLayer, ...]  # List of layer objects
@@ -268,7 +268,7 @@ This means:
 5. Processes text and generates speech
 
 ### Key Dependencies:
-- **`transformers==5.57.3`** (current version - requires these fixes)
+- **`transformers==4.57.3`** (current version - requires these fixes)
 - `torch` (serialization/deserialization)
 - `vibevoice` module (custom model implementation)
 
@@ -277,9 +277,9 @@ This means:
 | transformers version | VibeVoice compatibility | Required fixes |
 |---------------------|------------------------|----------------|
 | 4.51.3 | ✅ Native | None |
-| 5.x - 5.56.x | ⚠️ Partial | Cache format fix |
-| 5.57.3 | ✅ With fixes | Both fixes needed |
-| 5.57.3+ | ⚠️ Unknown | May need updates |
+| 4.52.x - 4.56.x | ⚠️ Partial | Cache format fix |
+| 4.57.3 | ✅ With fixes | Both fixes needed |
+| 4.57.3+ | ⚠️ Unknown | May need updates |
 
 ---
 
@@ -319,15 +319,15 @@ torch.save(all_prefilled_outputs, voice_path)
 
 ## What This Means for Future Updates
 
-### If transformers upgrades again:
-The fixes that bridge 4.x → 5.x might need updates for 6.x:
+### If transformers upgrades to 4.58+ or 5.x:
+The fixes that bridge 4.51.3 → 4.57.3 might need updates:
 1. Check if `get_text_config()` still works
 2. Verify `DynamicCache` format hasn't changed again
 3. Test voice file compatibility
 
 ### The "Right" Solution vs This Solution:
 
-**Ideal solution:** Rebuild vibevoice with transformers 5.57.3 and re-save voice files in new format
+**Ideal solution:** Rebuild vibevoice with transformers 4.57.3 and re-save voice files in new format
 
 **This solution:** Runtime format translation (adapter pattern)
 - ✅ Faster to implement
@@ -351,4 +351,4 @@ For issues related to:
 - **Model loading errors**: Verify `num_hidden_layers` is accessible
 - **Generation failures**: Check voice file format after torch.load()
 
-**Remember:** You're running transformers 5.57.3 on code designed for 4.51.3. These fixes are bridges across that 2+ version gap.
+**Remember:** You're running transformers 4.57.3 on code designed for 4.51.3. These fixes are bridges across that version gap.

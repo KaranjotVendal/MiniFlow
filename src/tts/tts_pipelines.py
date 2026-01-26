@@ -9,9 +9,9 @@ import utmosv2
 from TTS.api import TTS
 from transformers import AutoModel, AutoProcessor
 # =============================================================================
-# TRANSFORMERS 5.x COMPATIBILITY: NEW IMPORTS
+# TRANSFORMERS 4.57.x COMPATIBILITY: NEW IMPORTS
 # =============================================================================
-# Required for DynamicCache format conversion (transformers 4.x → 5.x)
+# Required for DynamicCache format conversion (transformers 4.51 → 4.57)
 from transformers.cache_utils import DynamicCache, DynamicLayer
 
 from src.benchmark.gpu_sampler import reset_peak_memory, get_gpu_memory_peak
@@ -24,21 +24,21 @@ logger = initialise_logger(__name__)
 
 
 # =============================================================================
-# TRANSFORMERS 5.x COMPATIBILITY FIXES
+# TRANSFORMERS 4.57.x COMPATIBILITY FIXES
 # =============================================================================
 # VibeVoice was originally built for transformers==4.51.3.
-# These functions bridge the gap when running transformers==5.57.3
+# These functions bridge the gap when running transformers==4.57.3
 # See VIBEVOICE_FIXES_README.md for full context.
 
 
 def _fix_dynamic_cache_format(cache):
     """
-    TRANSFORMERS 5.x COMPATIBILITY FIX:
+    TRANSFORMERS 4.57.x COMPATIBILITY FIX:
     Converts old DynamicCache format to new format.
 
     The Problem:
     - Voice files (.pt) saved with transformers 4.x use: key_cache/value_cache
-    - Transformers 5.x expects: layers attribute with DynamicLayer objects
+    - Transformers 4.57.x expects: layers attribute with DynamicLayer objects
     - This causes AttributeError: 'DynamicCache' object has no attribute 'layers'
 
     The Solution:
@@ -46,12 +46,12 @@ def _fix_dynamic_cache_format(cache):
     - Create new DynamicCache with DynamicLayer objects
     - Migrate all cached tensors to new structure
 
-    Voice files were created with transformers 4.51.3 but we're running 5.57.3
+    Voice files were created with transformers 4.51.3 but we're running 4.57.3
     """
     if not isinstance(cache, DynamicCache):
         return cache
 
-    # Check if it's already in the new format (transformers 5.x compatible)
+    # Check if it's already in the new format (transformers 4.57.x compatible)
     if hasattr(cache, 'layers'):
         return cache
 
@@ -78,7 +78,7 @@ def _fix_dynamic_cache_format(cache):
 
 def _fix_prefilled_outputs(all_prefilled_outputs):
     """
-    TRANSFORMERS 5.x COMPATIBILITY FIX:
+    TRANSFORMERS 4.57x COMPATIBILITY FIX:
     Recursively fixes all DynamicCache objects in loaded voice file data.
 
     Voice files contain prefilled outputs for:
@@ -235,10 +235,10 @@ def run_vibevoice(config: dict, llm_response: str, device: str | torch.device) -
     model.set_ddpm_inference_steps(num_steps=5)
 
     # =============================================================================
-    # TRANSFORMERS 5.x COMPATIBILITY FIX
+    # TRANSFORMERS 4.57.x COMPATIBILITY FIX
     # =============================================================================
     # FIX: Add num_hidden_layers attribute to config for DynamicCache compatibility
-    # This line is needed because transformers 5.x requires num_hidden_layers
+    # This line is needed because transformers 4.57.x requires num_hidden_layers
     # but VibeVoiceStreamingConfig (originally for 4.x) doesn't expose it.
     # See: VIBEVOICE_FIXES_README.md
     if not hasattr(model.config, 'num_hidden_layers'):
@@ -258,10 +258,10 @@ def run_vibevoice(config: dict, llm_response: str, device: str | torch.device) -
 
     all_prefilled_outputs = torch.load(voice_path, map_location=device_str, weights_only=False)
     # =============================================================================
-    # TRANSFORMERS 5.x COMPATIBILITY FIX
+    # TRANSFORMERS 4.57.x COMPATIBILITY FIX
     # =============================================================================
     # Fix old DynamicCache format issues from torch.load
-    # Voice files created with transformers 4.51.3 must be converted to 5.57.3 format
+    # Voice files created with transformers 4.51.3 must be converted to 4.57.3 format
     # This handles the key_cache → layers migration
     # See: VIBEVOICE_FIXES_README.md
     all_prefilled_outputs = _fix_prefilled_outputs(all_prefilled_outputs)
