@@ -45,8 +45,6 @@ MiniFlow's speech-to-speech pipeline has been benchmarked using two different TT
 
 **Impact:** This finding explains why model loading overhead varies significantly based on preceding operations. For consistent pipeline performance, model caching strategies must account for memory fragmentation.
 
-**Full Analysis:** See [LLM_LATENCY_INVESTIGATION.md](LLM_LATENCY_INVESTIGATION.md) for detailed investigation.
-
 ---
 
 ## Roadmap
