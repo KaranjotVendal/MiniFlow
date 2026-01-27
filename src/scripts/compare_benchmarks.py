@@ -42,47 +42,6 @@ def parse_config(config_path: Path) -> dict[str, str]:
     return result
 
 
-def extract_short_name(model_id: str) -> str:
-    """Extract short name from model ID."""
-    if not model_id:
-        return ""
-
-    # Handle common patterns
-    name = model_id.strip()
-
-    # Remove registry prefix
-    if "/" in name:
-        parts = name.split("/")
-        name = parts[-1]
-
-    # Remove common prefixes
-    prefixes = ["tts_models/", "speecht5_v2/", "ms_hub/"]
-    for prefix in prefixes:
-        if name.startswith(prefix):
-            name = name[len(prefix) :]
-
-    # Shorten common model names
-    replacements = [
-        ("Qwen/Qwen2.5-", "qwen-"),
-        ("Qwen2.5-", "qwen-"),
-        ("microsoft/", ""),
-        ("openai/", ""),
-        ("-Instruct", ""),
-        ("-instruct", ""),
-        ("-Base", ""),
-        ("-base", ""),
-    ]
-
-    for old, new in replacements:
-        name = name.replace(old, new)
-
-    # Handle specific patterns
-    if name.startswith("Phi-4"):
-        name = name.replace("Phi-4-mini-instruct", "phi-4").replace("Phi-4-", "phi-4-")
-
-    return name
-
-
 def generate_benchmark_name(config: dict[str, str], folder_name: str) -> str:
     """Generate readable benchmark name from config or folder."""
     if config.get("asr") and config.get("llm") and config.get("tts"):
