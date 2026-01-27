@@ -10,9 +10,10 @@ dataset:
 
 asr:
   model_id: "openai/whisper-small"
-
+  model_name: whisper-small
 llm:
   model_id: "Qwen/Qwen2.5-3B-Instruct"
+  model_name: Qwen2.5-3B
   quantization:
     enabled: true
     load_in_4bit: true
