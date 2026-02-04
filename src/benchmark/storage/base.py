@@ -49,9 +49,6 @@ class BaseStorage(ABC):
 
         Args:
             summary: Dictionary of aggregated summary statistics for each metric.
-
-        Raises:
-            StorageError: If saving fails due to I/O or other errors.
         """
         pass
 
