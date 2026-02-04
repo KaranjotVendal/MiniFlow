@@ -71,11 +71,15 @@ class WEREvaluator(BaseEvaluator):
 class UTMOSEvaluator(BaseEvaluator):
     """UTMOS is a neural network-based speech quality prediction model.
 
+    UTMOS was trained on 16kHz audio. Input sample rate must be >= 16kHz.
+
     Attributes:
         NAME: Unique identifier ("utmos").
     """
 
     NAME: str = "utmos"
+    # Minimum sample rate UTMOS was trained on
+    MIN_SAMPLE_RATE: int = 16000
 
     def _utmos_evaluate(
         self, waveform: torch.Tensor, output_sampling_rate: int
@@ -84,14 +88,20 @@ class UTMOSEvaluator(BaseEvaluator):
 
         Args:
             waveform: The synthesized audio waveform.
-            output_sampling_rate: Sample rate of the audio.
+            output_sampling_rate: Sample rate of the audio (must be >= 16kHz).
 
         Returns:
-            MOS score in range 1.0-5.0, or 0.0 if utmosv2 is unavailable.
-        """
+            MOS score (typically in range 1.0-5.0).
 
-        # TODO: we don't need the dataloader patch here that is in the original implementation
-        # through divine intervension
+        Raises:
+            ValueError: If output_sampling_rate is less than 16kHz.
+        """
+        if output_sampling_rate < self.MIN_SAMPLE_RATE:
+            raise ValueError(
+                f"UTMOS requires sample rate >= {self.MIN_SAMPLE_RATE}Hz, "
+                f"got {output_sampling_rate}Hz"
+            )
+
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir) / "temp_audio.wav"
             torchaudio.save(
@@ -104,7 +114,7 @@ class UTMOSEvaluator(BaseEvaluator):
             result = utmos.predict(input_path=str(temp_path))
             mos = result if isinstance(result, (int, float)) else 0.0
 
-        return round(mos, 2)
+        return round(float(mos), 2)
 
     def evaluate(self, waveform: torch.Tensor, output_sample_rate: int) -> float:
         """Calculate UTMOS score for synthesized speech.
