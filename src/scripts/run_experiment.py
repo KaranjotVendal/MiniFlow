@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from src.config.inspect_config import inspect_config
-from src.benchmark.runner import run_benchmark
+from src.benchmark.runner.experiment_runner import ExperimentRunner
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -26,9 +26,14 @@ def main():
         logger.info("Dry run enabled. Config loaded successfully. Exiting.")
         return
 
-    summary = run_benchmark(config)
+    runner = ExperimentRunner.from_config(config)
+    summary = runner.run()
     logger.info("Experiment complete.")
-    logger.info(f"Summary:\n{summary}")
+    logger.info(
+        "Summary:\n"
+        f"experiment={summary.experiment}, run_id={summary.run_id}, "
+        f"num_trials={summary.num_trials}"
+    )
 
 
 if __name__ == "__main__":

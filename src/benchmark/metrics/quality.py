@@ -161,11 +161,9 @@ class QualityMetrics(BaseMetric):
                 - evaluators: List of evaluator names to enable (default: ["wer"])
         """
         super().__init__(config)
-        evaluators_list = (
-            self.config.get("evaluators", ["wer"]) if self.config else ["wer"]
-        )
+        evaluators_list = self.config["evaluators"]
         self.evaluators: dict[str, BaseEvaluator] = self._create_evaluators(
-            evaluators_list
+            names=evaluators_list
         )
 
     def _create_evaluators(self, names: list[str]) -> dict[str, BaseEvaluator]:

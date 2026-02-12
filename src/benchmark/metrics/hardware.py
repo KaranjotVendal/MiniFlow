@@ -3,6 +3,7 @@ import torch
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.metrics.result_models import HardwareResult
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -44,7 +45,29 @@ class HardwareMetrics(BaseMetric):
 
     GPU_MEM_BLOCK = 1024 * 1024
 
-    def __init__(self, config: dict | None = None):
+    @staticmethod
+    def _resolve_device_index(device: object) -> int:
+        if isinstance(device, torch.device):
+            if device.type == "cuda":
+                return torch.cuda.current_device() if device.index is None else device.index
+            return 0
+        if isinstance(device, str):
+            value = device.strip().lower()
+            if value == "cuda":
+                return torch.cuda.current_device()
+            if value.startswith("cuda:"):
+                index_text = value.split(":", 1)[1]
+                if index_text.isdigit():
+                    return int(index_text)
+                return torch.cuda.current_device()
+            if value.isdigit():
+                return int(value)
+            return 0
+        if isinstance(device, int):
+            return device
+        return 0
+
+    def __init__(self, config: dict):
         """Initialize hardware metrics with configuration.
 
         Args:
@@ -54,18 +77,16 @@ class HardwareMetrics(BaseMetric):
                 - track_fragmentation: Track fragmentation metrics (default: False)
                 - waste_threshold: Threshold for fragmented (default: 0.3)
         """
+        # TODO: we can also measure FLOPs and other granular stuff in the future here.
         super().__init__(config)
-        self.device: int = config.get("device", 0) if config else 0
-        self.track_power: bool = config.get("track_power", False) if config else False
-        self.track_fragmentation: bool = (
-            config.get("track_fragmentation", False) if config else False
-        )
+        self.device: int = self._resolve_device_index(config["device"])
+        self.track_power: bool = config.get("track_power")
+        self.track_fragmentation: bool = config.get("track_fragmentation")
         # TODO: waste_ratio_threshold is a standard practice.
-        self.waste_threshold: float = (
-            config.get("waste_threshold", 0.3) if config else 0.3
-        )
+        self.waste_threshold: float = config.get("waste_threshold", 0.3)
         self.nvitop_device_obj = nvitop.Device(index=self.device)
         self.is_cuda_available = torch.cuda.is_available()
+        self._last_result: HardwareResult | None = None
 
     def _sync_cuda(self) -> None:
         """wait for GPU ops and ensure timing accuracy"""
@@ -105,6 +126,7 @@ class HardwareMetrics(BaseMetric):
         Args:
             context: The current metric context containing stage and trial info.
         """
+        self._last_result = None
         if self.is_cuda_available:
             try:
                 self._reset_peak_memory()
@@ -151,9 +173,12 @@ class HardwareMetrics(BaseMetric):
 
         if not self.is_cuda_available:
             logger.warning("No cuda device found. returning empty dict")
-            return metrics
+            self._last_result = HardwareResult()
+            return self._last_result.to_dict()
 
         try:
+            # Question: does allocated precisely capture the memory allocated to model
+            # or it capture all the memory allocated including other artifacts.
             allocated = self._get_gpu_memory_allocated()
             reserved = self._get_gpu_memory_reserved()
 
@@ -195,7 +220,13 @@ class HardwareMetrics(BaseMetric):
         except Exception as e:
             logger.exception(e)
 
-        return metrics
+        self._last_result = HardwareResult(**metrics)
+        return self._last_result.to_dict()
+
+    def to_result(self) -> HardwareResult:
+        if self._last_result is None:
+            raise RuntimeError("HardwareMetrics result is unavailable before end().")
+        return self._last_result
 
     def _get_power_draw(self) -> float:
         """Get GPU power draw in watts.

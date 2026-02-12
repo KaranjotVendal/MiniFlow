@@ -1,12 +1,11 @@
 import json
 import time
-import uuid
 from pathlib import Path
 
 import yaml
 
 from src.config.inspect_config import inspect_config
-from src.benchmark.runner import run_benchmark
+from src.benchmark.runner.experiment_runner import ExperimentRunner
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -47,13 +46,19 @@ def run_sweep(sweep_config_path: str | Path):
         logger.info(f"\n==== Running experiment: {exp_name} ===")
 
         _config = inspect_config(config_path)
-        summary = run_benchmark(_config)
+        runner = ExperimentRunner.from_config(_config)
+        summary = runner.run()
 
         sweep_results.append(
             {
                 "experiment": exp_name,
                 "config_path": str(config_path),
-                "summary": summary,
+                "summary": {
+                    "experiment": summary.experiment,
+                    "run_id": summary.run_id,
+                    "num_trials": summary.num_trials,
+                    "metric_summaries": summary.metric_summaries,
+                },
             }
         )
 
@@ -68,6 +73,8 @@ def run_sweep(sweep_config_path: str | Path):
         """helper to extract numeric mean from nested dict"""
         if isinstance(x, dict) and "mean" in x:
             return x["mean"]
+        if isinstance(x, dict):
+            return 0.0
         return x
 
     sweep_summary = {
@@ -78,15 +85,15 @@ def run_sweep(sweep_config_path: str | Path):
 
     for r in sweep_results:
         exp_summary = r["summary"]
+        metric_summaries = exp_summary.get("metric_summaries", {})
         sweep_summary["experiments"].append(
             {
                 "experiment": r["experiment"],
-                "asr_latency_mean": numeric(exp_summary["asr_latency"]),
-                "llm_latency_mean": numeric(exp_summary["llm_latency"]),
-                "tts_latency_mean": numeric(exp_summary["tts_latency"]),
-                "total_latency_mean": numeric(exp_summary["total_latency"]),
-                "asr_wer_mean": exp_summary["asr_wer_mean"],
-                "tts_utmos_mean": exp_summary["tts_utmos_mean"],
+                "num_trials": exp_summary.get("num_trials", 0),
+                "asr_latency_mean": numeric(metric_summaries.get("asr_latency_seconds", {})),
+                "llm_latency_mean": numeric(metric_summaries.get("llm_latency_seconds", {})),
+                "tts_latency_mean": numeric(metric_summaries.get("tts_latency_seconds", {})),
+                "total_latency_mean": numeric(metric_summaries.get("trial_wall_time_seconds", {})),
             }
         )
 

@@ -2,6 +2,7 @@ import time
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.metrics.result_models import LifecycleResult, ModelLoadResult
 
 
 @MetricRegistry.register("model_lifecycle")
@@ -27,6 +28,7 @@ class ModelLifecycleMetrics(BaseMetric):
         )
         self._load_events: list[dict] = []
         self._current_load: dict | None = None
+        self._last_result: LifecycleResult | None = None
 
     def start(self, context: MetricContext) -> None:
         """Initialize tracking for a new trial.
@@ -36,6 +38,7 @@ class ModelLifecycleMetrics(BaseMetric):
         """
         self._load_events = []
         self._current_load = None
+        self._last_result = None
 
     def record_load_start(self, model_name: str, source: str = "disk") -> None:
         """Record the start of a model load operation.
@@ -79,7 +82,8 @@ class ModelLifecycleMetrics(BaseMetric):
         self._current_load["total_time"] = end_time - self._current_load["start_time"]
 
         # TODO: can you please have a look at the current sequential loading and reconsider if this approach works?
-        # for example do I have specify every call where the being loaded from as well as how do we make sure cached status?
+        # for example do I have to specify every call where the model is being loaded
+        # from as well as how do we make sure cached status?
         # [This todo has a plan that will be implemented by me manually]
 
         # Calculate GPU transfer time if tracked and applicable
@@ -119,10 +123,16 @@ class ModelLifecycleMetrics(BaseMetric):
         cache_hits = sum(1 for event in self._load_events if event.get("cached", False))
         cache_misses = len(self._load_events) - cache_hits
 
-        return {
-            "load_events": self._load_events.copy(),
-            "total_model_load_time": round(total_load_time, 6),
-            "cache_hits": cache_hits,
-            "cache_misses": cache_misses,
-            "models_loaded": len(self._load_events),
-        }
+        self._last_result = LifecycleResult(
+            load_events=[ModelLoadResult.from_dict(event) for event in self._load_events],
+            total_model_load_time=round(total_load_time, 6),
+            cache_hits=cache_hits,
+            cache_misses=cache_misses,
+            models_loaded=len(self._load_events),
+        )
+        return self._last_result.to_dict()
+
+    def to_result(self) -> LifecycleResult:
+        if self._last_result is None:
+            raise RuntimeError("ModelLifecycleMetrics result is unavailable before end().")
+        return self._last_result
