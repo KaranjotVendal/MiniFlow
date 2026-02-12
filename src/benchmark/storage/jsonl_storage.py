@@ -2,6 +2,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 from src.benchmark.storage.base import BaseStorage
 
 
@@ -32,6 +34,9 @@ class JSONLStorage(BaseStorage):
     RAW_LOGS_FILENAME = "raw_logs.jsonl"
     SUMMARY_FILENAME = "summary.json"
     CONFIG_FILENAME = "config.json"
+    SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
+    TRIAL_SCHEMA_FILENAME = "trial.schema.json"
+    SUMMARY_SCHEMA_FILENAME = "summary.schema.json"
 
     def __init__(self, output_dir: Path):
         super().__init__(output_dir)
@@ -51,12 +56,15 @@ class JSONLStorage(BaseStorage):
             IOError: If writing to the file fails.
             TypeError: If metrics contains non-serializable values.
         """
+        # TODO: this extra trial_data info we are appending here seems redundant.
+        # we can rid of it.
         trial_data = {
             "sample_id": trial_id,
             "exp_name": self.output_dir.name,
             "timestamp_start": datetime.now().timestamp(),
             **metrics,
         }
+        self._validate_trial_payload(trial_data)
 
         with open(self.raw_logs_path, "a") as f:
             f.write(json.dumps(trial_data) + "\n")
@@ -74,13 +82,13 @@ class JSONLStorage(BaseStorage):
             IOError: If writing to the file fails.
             TypeError: If summary contains non-serializable values.
         """
-        # Add metadata to summary
-        summary_with_metadata = {
-            "experiment": self.output_dir.name,
-            "run_id": self.output_dir.name,
-            "timestamp": datetime.now().isoformat(),
-            **summary,
-        }
+        # Preserve explicit run metadata if provided by caller.
+        # Fall back to legacy defaults for backward compatibility.
+        summary_with_metadata = dict(summary)
+        summary_with_metadata.setdefault("experiment", self.output_dir.name)
+        summary_with_metadata.setdefault("run_id", self.output_dir.name)
+        summary_with_metadata.setdefault("timestamp", datetime.now().isoformat())
+        self._validate_summary_payload(summary_with_metadata)
 
         with open(self.summary_path, "w") as f:
             json.dump(summary_with_metadata, f, indent=2)
@@ -97,14 +105,11 @@ class JSONLStorage(BaseStorage):
             IOError: If writing to the file fails.
             TypeError: If config contains non-serializable values.
         """
-        # Add metadata to config
-        config_with_metadata = {
-            "saved_at": datetime.now().isoformat(),
-            "config": config,
-        }
+        config["saved_at"] = datetime.now().isoformat()
 
+        # TODO: we should save config as a yml file.
         with open(self.config_path, "w") as f:
-            json.dump(config_with_metadata, f, indent=2)
+            json.dump(config, f, indent=2)
 
     def load_trials(self) -> list[dict]:
         """Load all trial results from the JSONL file.
@@ -176,3 +181,35 @@ class JSONLStorage(BaseStorage):
         """
         if self.raw_logs_path.exists():
             self.raw_logs_path.unlink()
+
+    @classmethod
+    def _load_schema(cls, schema_filename: str) -> dict:
+        schema_path = cls.SCHEMAS_DIR / schema_filename
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Schema not found: {schema_path}")
+        with open(schema_path, "r") as f:
+            return json.load(f)
+
+    @classmethod
+    def _validate_trial_payload(cls, payload: dict) -> None:
+        schema = cls._load_schema(cls.TRIAL_SCHEMA_FILENAME)
+        validator = Draft202012Validator(schema)
+        errors = sorted(validator.iter_errors(payload), key=lambda e: e.path)
+        if errors:
+            first_error = errors[0]
+            path = ".".join(str(p) for p in first_error.path) or "<root>"
+            raise ValueError(
+                f"Invalid trial payload at {path}: {first_error.message}"
+            )
+
+    @classmethod
+    def _validate_summary_payload(cls, payload: dict) -> None:
+        schema = cls._load_schema(cls.SUMMARY_SCHEMA_FILENAME)
+        validator = Draft202012Validator(schema)
+        errors = sorted(validator.iter_errors(payload), key=lambda e: e.path)
+        if errors:
+            first_error = errors[0]
+            path = ".".join(str(p) for p in first_error.path) or "<root>"
+            raise ValueError(
+                f"Invalid summary payload at {path}: {first_error.message}"
+            )

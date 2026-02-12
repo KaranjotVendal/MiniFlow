@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "summary.schema.json",
+  "title": "MiniFlow Run Summary",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "experiment",
+        "run_id",
+        "num_trials"
+      ],
+      "properties": {
+        "experiment": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string" },
+        "num_trials": { "type": "integer", "minimum": 0 },
+        "num_success": { "type": "integer", "minimum": 0 },
+        "num_failed": { "type": "integer", "minimum": 0 },
+        "warmup_trials": { "type": "integer", "minimum": 0 },
+        "latency_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z0-9_]+$": { "$ref": "#/$defs/stats" }
+          }
+        },
+        "quality_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "wer": { "$ref": "#/$defs/stats" },
+            "utmos": { "$ref": "#/$defs/stats" }
+          }
+        },
+        "token_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tokens_generated": { "$ref": "#/$defs/stats" },
+            "total_generation_time": { "$ref": "#/$defs/stats" },
+            "ttft": { "$ref": "#/$defs/stats" },
+            "tokens_per_sec_total": { "$ref": "#/$defs/stats" }
+          }
+        },
+        "hardware_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z0-9_]+$": { "$ref": "#/$defs/stats" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["experiment", "run_id", "timestamp"],
+      "properties": {
+        "experiment": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string" }
+      }
+    }
+  ],
+  "$defs": {
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean", "median", "min", "max", "count"],
+      "properties": {
+        "mean": { "type": "number" },
+        "median": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "std": { "type": "number", "minimum": 0 },
+        "p95": { "type": "number" },
+        "p99": { "type": "number" },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -103,27 +103,66 @@ class LifecycleRecord:
 
     asr_load: ModelLoadEvent | None = None
     llm_load: ModelLoadEvent | None = None
+    llm_tokenizer_load: ModelLoadEvent | None = None
+    llm_pipeline_load: ModelLoadEvent | None = None
     tts_load: ModelLoadEvent | None = None
+    tts_processor_load: ModelLoadEvent | None = None
     unknown_load_events: list[ModelLoadEvent] = field(default_factory=list)
     total_model_load_time: float | None = None
     cache_hits: int | None = None
     cache_misses: int | None = None
     models_loaded: int | None = None
 
+    @staticmethod
+    def _append_or_keep_unknown(
+        current: ModelLoadEvent | None,
+        incoming: ModelLoadEvent,
+        unknown_events: list[ModelLoadEvent],
+    ) -> ModelLoadEvent:
+        if current is None:
+            return incoming
+        unknown_events.append(current)
+        return incoming
+
     def populate(self, load_events: list[dict[str, Any]]) -> None:
         self.asr_load = None
         self.llm_load = None
+        self.llm_tokenizer_load = None
+        self.llm_pipeline_load = None
         self.tts_load = None
+        self.tts_processor_load = None
         self.unknown_load_events = []
 
         for event_dict in load_events:
             event = ModelLoadEvent.from_dict(event_dict)
             if event.stage == "asr":
-                self.asr_load = event
+                self.asr_load = self._append_or_keep_unknown(
+                    self.asr_load, event, self.unknown_load_events
+                )
             elif event.stage == "llm":
-                self.llm_load = event
+                model_name = (event.model_name or "").lower()
+                if "tokenizer" in model_name:
+                    self.llm_tokenizer_load = self._append_or_keep_unknown(
+                        self.llm_tokenizer_load, event, self.unknown_load_events
+                    )
+                elif "pipeline" in model_name:
+                    self.llm_pipeline_load = self._append_or_keep_unknown(
+                        self.llm_pipeline_load, event, self.unknown_load_events
+                    )
+                else:
+                    self.llm_load = self._append_or_keep_unknown(
+                        self.llm_load, event, self.unknown_load_events
+                    )
             elif event.stage == "tts":
-                self.tts_load = event
+                model_name = (event.model_name or "").lower()
+                if "processor" in model_name or "process" in model_name:
+                    self.tts_processor_load = self._append_or_keep_unknown(
+                        self.tts_processor_load, event, self.unknown_load_events
+                    )
+                else:
+                    self.tts_load = self._append_or_keep_unknown(
+                        self.tts_load, event, self.unknown_load_events
+                    )
             else:
                 self.unknown_load_events.append(event)
 
@@ -137,9 +176,18 @@ class LifecycleRecord:
         if self.llm_load is not None:
             events.append(self.llm_load.to_dict())
             payload["llm_model_load"] = self.llm_load.to_dict()
+        if self.llm_tokenizer_load is not None:
+            events.append(self.llm_tokenizer_load.to_dict())
+            payload["llm_tokenizer_load"] = self.llm_tokenizer_load.to_dict()
+        if self.llm_pipeline_load is not None:
+            events.append(self.llm_pipeline_load.to_dict())
+            payload["llm_pipeline_load"] = self.llm_pipeline_load.to_dict()
         if self.tts_load is not None:
             events.append(self.tts_load.to_dict())
             payload["tts_model_load"] = self.tts_load.to_dict()
+        if self.tts_processor_load is not None:
+            events.append(self.tts_processor_load.to_dict())
+            payload["tts_processor_load"] = self.tts_processor_load.to_dict()
         if self.unknown_load_events:
             events.extend([event.to_dict() for event in self.unknown_load_events])
 
@@ -294,7 +342,9 @@ class HardwarePhaseRecord:
     asr_inference: HardwareSnapshot | None = None
     llm_tokenizer: HardwareSnapshot | None = None
     llm_model_load: HardwareSnapshot | None = None
+    llm_pipeline: HardwareSnapshot | None = None
     llm_inference: HardwareSnapshot | None = None
+    tts_processor_load: HardwareSnapshot | None = None
     tts_model_load: HardwareSnapshot | None = None
     tts_inference: HardwareSnapshot | None = None
 
@@ -304,7 +354,9 @@ class HardwarePhaseRecord:
             "asr_inference_gpu_metrics": "asr_inference",
             "llm_tokenizer_gpu_metrics": "llm_tokenizer",
             "llm_model_load_gpu_metrics": "llm_model_load",
+            "llm_pipeline_gpu_metrics": "llm_pipeline",
             "llm_inference_gpu_metrics": "llm_inference",
+            "tts_processor_load_gpu_metrics": "tts_processor_load",
             "tts_model_load_gpu_metrics": "tts_model_load",
             "tts_inference_gpu_metrics": "tts_inference",
         }
@@ -324,8 +376,12 @@ class HardwarePhaseRecord:
             payload["llm_tokenizer"] = self.llm_tokenizer.to_dict()
         if self.llm_model_load is not None:
             payload["llm_model_load"] = self.llm_model_load.to_dict()
+        if self.llm_pipeline is not None:
+            payload["llm_pipeline"] = self.llm_pipeline.to_dict()
         if self.llm_inference is not None:
             payload["llm_inference"] = self.llm_inference.to_dict()
+        if self.tts_processor_load is not None:
+            payload["tts_processor_load"] = self.tts_processor_load.to_dict()
         if self.tts_model_load is not None:
             payload["tts_model_load"] = self.tts_model_load.to_dict()
         if self.tts_inference is not None:
