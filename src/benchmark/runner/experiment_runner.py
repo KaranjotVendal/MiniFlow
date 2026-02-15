@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from statistics import mean, median
@@ -10,6 +10,7 @@ from src.benchmark.storage import BaseStorage
 from src.benchmark.core.base import BaseMetric
 from src.benchmark.collectors import BenchmarkCollector
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.runner.summary_models import MetricStats, SummaryRecord
 from src.benchmark.storage.jsonl_storage import JSONLStorage
 from src.config.load_config import load_yaml_config
 from src.sts_pipeline import process_sample
@@ -29,7 +30,7 @@ class ExperimentSummary:
     experiment: str
     run_id: str
     num_trials: int
-    summary: dict[str, Any] = field(default_factory=dict)
+    summary: SummaryRecord | None = None
 
 
 class ExperimentRunner:
@@ -186,38 +187,31 @@ class ExperimentRunner:
         logger.info("Warmup complete.")
 
     @staticmethod
-    def _compute_stats(values: list[float]) -> dict[str, float | int]:
+    def _compute_stats(values: list[float]) -> MetricStats:
         sorted_values = sorted(values)
         n = len(sorted_values)
         if n == 0:
-            return {
-                "mean": 0.0,
-                "median": 0.0,
-                "min": 0.0,
-                "max": 0.0,
-                "std": 0.0,
-                "p95": 0.0,
-                "p99": 0.0,
-                "count": 0,
-            }
+            return MetricStats(
+                mean=0.0, median=0.0, min=0.0, max=0.0, std=0.0, p95=0.0, p99=0.0, count=0
+            )
 
         mean_val = mean(values)
-        return {
-            "mean": round(mean_val, 6),
-            "median": round(median(values), 6),
-            "min": round(min(values), 6),
-            "max": round(max(values), 6),
-            "std": round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
+        return MetricStats(
+            mean=round(mean_val, 6),
+            median=round(median(values), 6),
+            min=round(min(values), 6),
+            max=round(max(values), 6),
+            std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
             if n > 1
             else 0.0,
-            "p95": round(sorted_values[int(0.95 * n)], 6)
+            p95=round(sorted_values[int(0.95 * n)], 6)
             if n >= 20
             else round(sorted_values[-1], 6),
-            "p99": round(sorted_values[int(0.99 * n)], 6)
+            p99=round(sorted_values[int(0.99 * n)], 6)
             if n >= 100
             else round(sorted_values[-1], 6),
-            "count": n,
-        }
+            count=n,
+        )
 
     @staticmethod
     def _set_nested(target: dict[str, Any], path: list[str], value: Any) -> None:
@@ -228,7 +222,7 @@ class ExperimentRunner:
             current = current[key]
         current[path[-1]] = value
 
-    def _generate_summary(self) -> dict[str, Any]:
+    def _generate_summary(self) -> SummaryRecord:
         trials: list[dict] = self.storage.load_trials()
         main_trials = [t for t in trials if not t.get("is_warmup", False)]
         warmup_trials = [t for t in trials if t.get("is_warmup", False)]
@@ -241,7 +235,7 @@ class ExperimentRunner:
             else:
                 status_counts["error"] += 1
 
-        summary: dict[str, Any] = {
+        summary_dict: dict[str, Any] = {
             "meta": {
                 "experiment": self.experiment,
                 "run_id": self.run_id,
@@ -356,10 +350,12 @@ class ExperimentRunner:
                         )
 
         for path, values in numeric_series.items():
-            self._set_nested(summary, list(path), self._compute_stats(values))
+            self._set_nested(summary_dict, list(path), self._compute_stats(values).to_dict())
 
-        self._set_nested(summary, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts)
-        return summary
+        self._set_nested(
+            summary_dict, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts
+        )
+        return SummaryRecord.from_dict(summary_dict)
 
     def _run_benchmark_samples(self, num_samples: int, split: str) -> None:
         trial_iter = self._stream_samples(num_samples=num_samples, split=split)
@@ -399,14 +395,15 @@ class ExperimentRunner:
         self._run_benchmark_samples(num_samples=num_samples, split=split)
 
         logger.info("Generating summary statistics...")
-        summary_payload = self._generate_summary()
+        summary_record = self._generate_summary()
+        summary_payload = summary_record.to_dict()
         self.storage.save_summary(summary_payload)
-        meta = summary_payload["meta"]
+        meta = summary_record.meta
         summary = ExperimentSummary(
-            experiment=meta["experiment"],
-            run_id=meta["run_id"],
-            num_trials=meta["num_trials"],
-            summary=summary_payload,
+            experiment=meta.experiment,
+            run_id=meta.run_id,
+            num_trials=meta.num_trials,
+            summary=summary_record,
         )
 
         logger.info("Experiment complete!")
