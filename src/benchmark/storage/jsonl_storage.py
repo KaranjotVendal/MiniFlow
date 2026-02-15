@@ -64,17 +64,7 @@ class JSONLStorage(BaseStorage):
             f.write(json.dumps(trial_data, separators=(",", ":")) + "\n")
 
     def save_summary(self, summary: dict) -> None:
-        """Save experiment summary statistics to JSON file.
-
-        Writes aggregated summary statistics for all trials.
-
-        Args:
-            summary: Dictionary of aggregated summary statistics.
-
-        Raises:
-            IOError: If writing to the file fails.
-            TypeError: If summary contains non-serializable values.
-        """
+        """Save structured experiment summary statistics to JSON file."""
         summary_data = dict(summary)
         self._validate_summary_payload(summary_data)
 
