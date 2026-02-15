@@ -66,33 +66,36 @@ class BenchmarkCollector:
         return self._current_trial
 
     def _apply_non_streaming_ttft_proxy(self, token_record: TokenRecord) -> None:
-    # TODO: refactor for reability. current;y it is a little confusing to read to and compre
         if self.is_streaming:
             token_record.ttft_mode = "true_streaming"
             return
 
-        if (
+        has_tokens = (
             isinstance(token_record.tokens_generated, int)
             and token_record.tokens_generated > 0
-        ):
-            if token_record.ttft is None and isinstance(
-                token_record.total_generation_time, (int, float)
-            ):
-                token_record.ttft = token_record.total_generation_time
-                token_record.ttft_mode = "proxy_non_streaming"
-            else:
-                token_record.ttft_mode = "true_streaming"
+        )
+        if not has_tokens:
+            return
 
-            if (
-                isinstance(token_record.total_generation_time, (int, float))
-                and token_record.total_generation_time > 0
-            ):
-                token_record.tokens_per_sec_total = round(
-                    token_record.tokens_generated / token_record.total_generation_time,
-                    4,
-                )
-            else:
-                token_record.tokens_per_sec_total = 0.0
+        total_time = token_record.total_generation_time
+        has_total_time = isinstance(total_time, (int, float))
+        has_positive_total_time = has_total_time and total_time > 0
+
+        if token_record.ttft is None and has_total_time:
+            # Non-streaming fallback: use end-to-end generation time as TTFT proxy.
+            token_record.ttft = total_time
+            token_record.ttft_mode = "proxy_non_streaming"
+        else:
+            token_record.ttft_mode = "true_streaming"
+
+        if has_positive_total_time:
+            token_record.tokens_per_sec_total = round(
+                token_record.tokens_generated / total_time,
+                4,
+            )
+            return
+
+        token_record.tokens_per_sec_total = 0.0
 
     def _start_trial_metrics(self) -> None:
         assert self._trial_context is not None

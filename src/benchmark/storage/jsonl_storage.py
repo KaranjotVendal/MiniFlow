@@ -56,24 +56,17 @@ class JSONLStorage(BaseStorage):
             IOError: If writing to the file fails.
             TypeError: If metrics contains non-serializable values.
         """
-        # TODO: this extra trial_data info we are appending here seems redundant.
-        # we can rid of it.
-        trial_data = {
-            "sample_id": trial_id,
-            "exp_name": self.output_dir.name,
-            "timestamp_start": datetime.now().timestamp(),
-            **metrics,
-        }
+        trial_data = dict(metrics)
         self._validate_trial_payload(trial_data)
 
         with open(self.raw_logs_path, "a") as f:
-            f.write(json.dumps(trial_data) + "\n")
+            # Enforce strict JSONL: one compact JSON object per line.
+            f.write(json.dumps(trial_data, separators=(",", ":")) + "\n")
 
     def save_summary(self, summary: dict) -> None:
         """Save experiment summary statistics to JSON file.
 
-        Writes aggregated summary statistics for all trials. The summary
-        includes experiment metadata and per-metric statistics.
+        Writes aggregated summary statistics for all trials.
 
         Args:
             summary: Dictionary of aggregated summary statistics.
@@ -82,16 +75,11 @@ class JSONLStorage(BaseStorage):
             IOError: If writing to the file fails.
             TypeError: If summary contains non-serializable values.
         """
-        # Preserve explicit run metadata if provided by caller.
-        # Fall back to legacy defaults for backward compatibility.
-        summary_with_metadata = dict(summary)
-        summary_with_metadata.setdefault("experiment", self.output_dir.name)
-        summary_with_metadata.setdefault("run_id", self.output_dir.name)
-        summary_with_metadata.setdefault("timestamp", datetime.now().isoformat())
-        self._validate_summary_payload(summary_with_metadata)
+        summary_data = dict(summary)
+        self._validate_summary_payload(summary_data)
 
         with open(self.summary_path, "w") as f:
-            json.dump(summary_with_metadata, f, indent=2)
+            json.dump(summary_data, f, indent=2)
 
     def save_config(self, config: dict) -> None:
         """Save experiment configuration to JSON file.
@@ -131,12 +119,25 @@ class JSONLStorage(BaseStorage):
         if not self.raw_logs_path.exists():
             return trials
 
-        with open(self.raw_logs_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    trial_data = json.loads(line)
-                    trials.append(trial_data)
+        raw_text = self.raw_logs_path.read_text().strip()
+        if not raw_text:
+            return trials
+
+        # Preferred format: strict JSONL (one JSON object per line).
+        if "\n{" in raw_text or not raw_text.startswith("{"):
+            with open(self.raw_logs_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        trials.append(json.loads(line))
+            return trials
+
+        # Backward-compatibility fallback: legacy pretty-printed single JSON object.
+        legacy_trial = json.loads(raw_text)
+        if isinstance(legacy_trial, dict):
+            trials.append(legacy_trial)
+        elif isinstance(legacy_trial, list):
+            trials.extend(legacy_trial)
 
         return trials
 
