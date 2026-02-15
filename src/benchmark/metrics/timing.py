@@ -31,7 +31,7 @@ class TimingMetrics(BaseMetric):
         Args:
             context: The current metric context containing stage and trial info.
         """
-        # TOOD: given the implmentation and current we can probably delete _start_time in the future.
+        # TOOD: given the implmentation and current implementation we can probably delete _start_time in the future.
         self._start_time = time.perf_counter()
         self._stage_start_times = {}
         self._stage_latencies = {}

@@ -45,33 +45,11 @@ class HardwareMetrics(BaseMetric):
 
     GPU_MEM_BLOCK = 1024 * 1024
 
-    @staticmethod
-    def _resolve_device_index(device: object) -> int:
-        if isinstance(device, torch.device):
-            if device.type == "cuda":
-                return torch.cuda.current_device() if device.index is None else device.index
-            return 0
-        if isinstance(device, str):
-            value = device.strip().lower()
-            if value == "cuda":
-                return torch.cuda.current_device()
-            if value.startswith("cuda:"):
-                index_text = value.split(":", 1)[1]
-                if index_text.isdigit():
-                    return int(index_text)
-                return torch.cuda.current_device()
-            if value.isdigit():
-                return int(value)
-            return 0
-        if isinstance(device, int):
-            return device
-        return 0
-
     def __init__(self, config: dict):
         """Initialize hardware metrics with configuration.
 
         Args:
-            config: Configuration dictionary with options:
+            config: Configuration dictionary with options:device
                 - device: GPU device index (default: 0)
                 - track_power: Track power draw in watts (default: False)
                 - track_fragmentation: Track fragmentation metrics (default: False)
@@ -79,7 +57,7 @@ class HardwareMetrics(BaseMetric):
         """
         # TODO: we can also measure FLOPs and other granular stuff in the future here.
         super().__init__(config)
-        self.device: int = self._resolve_device_index(config["device"])
+        self.device: int = config["device"]
         self.track_power: bool = config.get("track_power")
         self.track_fragmentation: bool = config.get("track_fragmentation")
         # TODO: waste_ratio_threshold is a standard practice.
@@ -239,29 +217,7 @@ class HardwareMetrics(BaseMetric):
         return float(power_mw) / 1000.0
 
     def _get_gpu_temperature(self) -> float | None:
-        """Get GPU temperature in Celsius.
-
-        Returns:We are implementing a modular benchmark framework for MiniFlow (a speech-to-speech pipeline) based on the specifications in:
-        - benchmark_implementation.md - Architecture design
-        - benchmarking_plan.md - Metrics requirements
-        - benchmark_tickets.md - Task breakdown (22 tasks across 5 milestones)
-
-        Completed Work:
-        Last task completed: Task 1.4 (Configuration Loading and Validation)
-        - All 24 tests passing
-        - Test structure reorganized into unit_tests/ and integration_tests/
-        - Progress file updated with patterns and task logs
-        Next task: Task 2.1 - Which we have implemented and just needs reviewing and sign off
-
-        For New Session
-        To continue work, start by:
-        1. Reading benchmark_tickets.md to understand Task 1.4 requirements
-        2. Reviewing existing patterns in src/benchmark/core/base.py and src/benchmark/config/
-        3. Checking benchmark_progress.md for established patterns
-        4. Running tests: python -m pytest tests/ -v
-        5. Remember each task needs a review and sign off from me before you can move on to the  next task
-            Temperature in Celsius, or None if unavailable.
-        """
+        """Get GPU temperature in Celsius."""
         temperature = self.nvitop_device_obj.temperature()
         return float(temperature) if temperature is not None else None
 
