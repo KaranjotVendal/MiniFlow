@@ -399,6 +399,8 @@ class ExperimentRunner:
         summary_payload = summary_record.to_dict()
         self.storage.save_summary(summary_payload)
         meta = summary_record.meta
+
+        # TODO: It seems dataclasses for ExperimentSummary can be simplified.
         summary = ExperimentSummary(
             experiment=meta.experiment,
             run_id=meta.run_id,
