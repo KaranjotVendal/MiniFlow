@@ -138,8 +138,11 @@ class ExperimentRunner:
         enabled_metrics = config["enabled"]
         metric_configurations: dict[str, dict] = config["configurations"]
 
-        metric_configurations["hardware_basic"]["device"] = DEVICE
-        metric_configurations["hardware_detailed"]["device"] = DEVICE
+        # Pass runtime device through config; hardware metric resolves device/index.
+        if "hardware_basic" in metric_configurations:
+            metric_configurations["hardware_basic"]["device"] = DEVICE
+        if "hardware_detailed" in metric_configurations:
+            metric_configurations["hardware_detailed"]["device"] = DEVICE
 
         # NOTE: all the metrics that are enabled.
         metrics: dict[str, BaseMetric] = {}

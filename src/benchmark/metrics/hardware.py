@@ -19,7 +19,7 @@ class HardwareMetrics(BaseMetric):
     - hardware_detailed: Includes memory fragmentation analysis (waste ratio, inactive blocks, etc.)
 
     Attributes:
-        device: GPU device index to monitor.
+        device_index: GPU device index to monitor.
         track_power: Whether to track GPU power draw in watts.
         track_fragmentation: Whether to track memory fragmentation metrics.
         waste_threshold: Threshold for considering memory as fragmented (0.0-1.0).
@@ -57,42 +57,78 @@ class HardwareMetrics(BaseMetric):
         """
         # TODO: we can also measure FLOPs and other granular stuff in the future here.
         super().__init__(config)
-        self.device: int = config["device"]
+        self.device_index: int = self._resolve_device_index(config["device"])
         self.track_power: bool = config.get("track_power")
         self.track_fragmentation: bool = config.get("track_fragmentation")
         # TODO: waste_ratio_threshold is a standard practice.
         self.waste_threshold: float = config.get("waste_threshold", 0.3)
-        self.nvitop_device_obj = nvitop.Device(index=self.device)
+        self.nvitop_device_obj = nvitop.Device(index=self.device_index)
         self.is_cuda_available = torch.cuda.is_available()
         self._last_result: HardwareResult | None = None
 
+    @staticmethod
+    def _resolve_device_index(device: int | str | torch.device) -> int:
+        """Resolve supported device specs to a CUDA device index."""
+        if isinstance(device, int):
+            return device
+
+        if isinstance(device, torch.device):
+            if device.type != "cuda":
+                raise ValueError(
+                    f"HardwareMetrics requires CUDA device, got: {device.type}"
+                )
+            if device.index is not None:
+                return int(device.index)
+            if not torch.cuda.is_available():
+                raise ValueError("CUDA device requested but CUDA is unavailable.")
+            return int(torch.cuda.current_device())
+
+        if isinstance(device, str):
+            value = device.strip().lower()
+            if value == "cuda":
+                if not torch.cuda.is_available():
+                    raise ValueError("CUDA device requested but CUDA is unavailable.")
+                return int(torch.cuda.current_device())
+            if value.startswith("cuda:"):
+                try:
+                    return int(value.split(":", maxsplit=1)[1])
+                except ValueError as exc:
+                    raise ValueError(f"Invalid CUDA device spec: {device}") from exc
+            raise ValueError(
+                f"Unsupported device string: {device}. Expected 'cuda' or 'cuda:N'."
+            )
+
+        raise TypeError(
+            f"Unsupported device type for HardwareMetrics: {type(device).__name__}"
+        )
+
     def _sync_cuda(self) -> None:
         """wait for GPU ops and ensure timing accuracy"""
-        torch.cuda.synchronize(self.device)
+        torch.cuda.synchronize(self.device_index)
 
     def _get_gpu_memory_reserved(self) -> int:
         """returns the current reserved GPU memory in MB"""
-        return torch.cuda.memory_reserved(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.memory_reserved(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_allocated(self) -> int:
         """returns the currently allocated GPU memory in MB"""
-        return torch.cuda.memory_allocated(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.memory_allocated(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_peak_allocated(self) -> int:
         """returns the currently allocated GPU memory in MB"""
-        return torch.cuda.max_memory_allocated(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.max_memory_allocated(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_peak_reserved(self) -> int:
         """returns the peak reserved memory since the last reset (MB)"""
-        return torch.cuda.max_memory_reserved(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.max_memory_reserved(self.device_index) // self.GPU_MEM_BLOCK
 
     def _reset_peak_memory(self) -> None:
         """reset pytorch peak memory tracker. call before measuring each stage."""
-        torch.cuda.reset_peak_memory_stats(self.device)
+        torch.cuda.reset_peak_memory_stats(self.device_index)
 
     def _get_gpu_memory_stats(self) -> dict:
         """returns Detailed statistics | Segment counts, allocation counts, free/used blocks"""
-        return torch.cuda.memory_stats(self.device)
+        return torch.cuda.memory_stats(self.device_index)
 
     def start(self, context: MetricContext) -> None:
         """Capture baseline hardware state and reset peak memory tracking.
