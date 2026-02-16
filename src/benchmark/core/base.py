@@ -115,6 +115,15 @@ class BaseMetric(ABC):
         """
         return self.config.get("enabled", True)
 
+    def to_result(self) -> Any:
+        """Return the most recent typed metric result.
+
+        Metrics that support explicit typed exchange should override this.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement to_result()."
+        )
+
 
 class BaseCollector(ABC):
     """Abstract base class for metric collectors.

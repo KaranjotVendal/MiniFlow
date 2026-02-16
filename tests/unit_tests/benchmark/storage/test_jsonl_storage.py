@@ -131,8 +131,8 @@ class TestJSONLStorage:
         assert storage.config_path.exists()
 
         loaded = storage.load_config()
-        assert loaded["config"]["num_samples"] == 20
-        assert loaded["config"]["metrics"] == ["latency", "wer"]
+        assert loaded["num_samples"] == 20
+        assert loaded["metrics"] == ["latency", "wer"]
         assert "saved_at" in loaded
 
     def test_load_trials_empty_file(self, tmp_path: Path):
@@ -203,3 +203,21 @@ class TestJSONLStorage:
         storage.clear_trials()
         assert storage.get_trial_count() == 0
         assert not storage.raw_logs_path.exists()
+
+    def test_save_trial_validation_error(self, tmp_path: Path):
+        """Test trial schema validation error on invalid payload."""
+        output_dir = tmp_path / "experiment_001"
+        storage = JSONLStorage(output_dir)
+
+        with pytest.raises(ValueError, match="Invalid trial payload"):
+            # Overwrite generated sample_id with wrong type to trigger schema error
+            storage.save_trial("trial_001", {"sample_id": 123, "latency": 1.2})
+
+    def test_save_summary_validation_error(self, tmp_path: Path):
+        """Test summary schema validation error on invalid payload."""
+        output_dir = tmp_path / "experiment_001"
+        storage = JSONLStorage(output_dir)
+
+        with pytest.raises(ValueError, match="Invalid summary payload"):
+            # Override metadata key with invalid type
+            storage.save_summary({"run_id": 123, "mean_latency": 1.5})

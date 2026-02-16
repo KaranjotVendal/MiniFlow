@@ -2,6 +2,7 @@ import time
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.metrics.result_models import TimingResult
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -22,6 +23,7 @@ class TimingMetrics(BaseMetric):
         self._start_time: float | None = None
         self._stage_start_times: dict[str, float] = {}
         self._stage_latencies: dict[str, float] = {}
+        self._last_result: TimingResult | None = None
 
     def start(self, context: MetricContext) -> None:
         """Capture the start timestamp and reset stage tracking.
@@ -29,9 +31,11 @@ class TimingMetrics(BaseMetric):
         Args:
             context: The current metric context containing stage and trial info.
         """
+        # TOOD: given the implmentation and current implementation we can probably delete _start_time in the future.
         self._start_time = time.perf_counter()
         self._stage_start_times = {}
         self._stage_latencies = {}
+        self._last_result = None
 
     def record_stage_start(self, name: str) -> None:
         """Record when a stage begins.
@@ -66,7 +70,13 @@ class TimingMetrics(BaseMetric):
         if self._start_time is not None:
             total_latency = time.perf_counter() - self._start_time
 
-        return {
-            "total_latency_seconds": round(total_latency, 6),
-            "stage_latencies": self._stage_latencies.copy(),
-        }
+        self._last_result = TimingResult(
+            total_latency_seconds=round(total_latency, 6),
+            stage_latencies=self._stage_latencies.copy(),
+        )
+        return self._last_result.to_dict()
+
+    def to_result(self) -> TimingResult:
+        if self._last_result is None:
+            raise RuntimeError("TimingMetrics result is unavailable before end().")
+        return self._last_result

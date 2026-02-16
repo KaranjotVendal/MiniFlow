@@ -2,7 +2,8 @@ import yaml
 from pathlib import Path
 
 
-def load_experiment_config(path: str | Path) -> dict:
+def load_yaml_config(path: str | Path) -> dict:
+    # save config values to a dataclasses for easier usage.
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")

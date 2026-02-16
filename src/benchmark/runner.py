@@ -77,7 +77,7 @@ def run_benchmark(config: dict) -> dict:
     # aggregration
     def aggregate(field: str) -> dict:
         arr = [r[field] for r in results]
-        # NOTE: need to sort for median
+        # NOTE: need to sort for median and for percentile.
         s = sorted(arr)
         return {
             "mean": mean(arr),

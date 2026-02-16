@@ -2,70 +2,71 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "trial.schema.json",
   "title": "MiniFlow Trial Record",
-  "oneOf": [
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "trial_id",
-        "sample_id",
-        "is_warmup",
-        "status",
-        "trial_wall_time_seconds",
-        "latencies"
-      ],
-      "properties": {
-        "trial_id": { "type": "string", "minLength": 1 },
-        "sample_id": { "type": "string", "minLength": 1 },
-        "is_warmup": { "type": "boolean" },
-        "status": { "type": "string", "enum": ["success", "error"] },
-        "error": { "type": ["string", "null"] },
-        "trial_wall_time_seconds": { "type": "number", "minimum": 0 },
-        "latencies": {
-          "type": "object",
-          "minProperties": 1,
-          "additionalProperties": false,
-          "patternProperties": {
-            "^[a-z0-9_]+$": { "type": "number", "minimum": 0 }
-          }
-        },
-        "phase_metrics": {
-          "type": "object",
-          "additionalProperties": false,
-          "patternProperties": {
-            "^[a-z0-9_]+$": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          }
-        },
-        "wer": { "type": "number", "minimum": 0 },
-        "utmos": { "type": "number" },
-        "tokens_generated": { "type": "integer", "minimum": 0 },
-        "total_generation_time": { "type": "number", "minimum": 0 },
-        "ttft": { "type": ["number", "null"], "minimum": 0 },
-        "ttft_mode": {
-          "type": "string",
-          "enum": ["true_streaming", "proxy_non_streaming"]
-        },
-        "tokens_per_sec_total": { "type": "number", "minimum": 0 }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "status": { "const": "error" } } },
-          "then": { "required": ["error"] }
-        }
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "trial_id",
+    "sample_id",
+    "is_warmup",
+    "status",
+    "trial_wall_time_seconds",
+    "latencies"
+  ],
+  "properties": {
+    "trial_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sample_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "is_warmup": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error"
       ]
     },
-    {
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "trial_wall_time_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "latencies": {
       "type": "object",
-      "required": ["sample_id", "exp_name", "timestamp_start"],
-      "properties": {
-        "sample_id": { "type": "string", "minLength": 1 },
-        "exp_name": { "type": "string", "minLength": 1 },
-        "timestamp_start": { "type": "number" }
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z0-9_]+$": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "error"
+          }
+        }
       },
-      "additionalProperties": true
+      "then": {
+        "required": [
+          "error"
+        ]
+      }
     }
   ]
 }

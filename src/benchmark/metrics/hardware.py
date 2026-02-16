@@ -3,6 +3,7 @@ import torch
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.metrics.result_models import HardwareResult
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -18,7 +19,7 @@ class HardwareMetrics(BaseMetric):
     - hardware_detailed: Includes memory fragmentation analysis (waste ratio, inactive blocks, etc.)
 
     Attributes:
-        device: GPU device index to monitor.
+        device_index: GPU device index to monitor.
         track_power: Whether to track GPU power draw in watts.
         track_fragmentation: Whether to track memory fragmentation metrics.
         waste_threshold: Threshold for considering memory as fragmented (0.0-1.0).
@@ -44,56 +45,90 @@ class HardwareMetrics(BaseMetric):
 
     GPU_MEM_BLOCK = 1024 * 1024
 
-    def __init__(self, config: dict | None = None):
+    def __init__(self, config: dict):
         """Initialize hardware metrics with configuration.
 
         Args:
-            config: Configuration dictionary with options:
+            config: Configuration dictionary with options:device
                 - device: GPU device index (default: 0)
                 - track_power: Track power draw in watts (default: False)
                 - track_fragmentation: Track fragmentation metrics (default: False)
                 - waste_threshold: Threshold for fragmented (default: 0.3)
         """
+        # TODO: we can also measure FLOPs and other granular stuff in the future here.
         super().__init__(config)
-        self.device: int = config.get("device", 0) if config else 0
-        self.track_power: bool = config.get("track_power", False) if config else False
-        self.track_fragmentation: bool = (
-            config.get("track_fragmentation", False) if config else False
-        )
+        self.device_index: int = self._resolve_device_index(config["device"])
+        self.track_power: bool = config.get("track_power")
+        self.track_fragmentation: bool = config.get("track_fragmentation")
         # TODO: waste_ratio_threshold is a standard practice.
-        self.waste_threshold: float = (
-            config.get("waste_threshold", 0.3) if config else 0.3
-        )
-        self.nvitop_device_obj = nvitop.Device(index=self.device)
+        self.waste_threshold: float = config.get("waste_threshold", 0.3)
+        self.nvitop_device_obj = nvitop.Device(index=self.device_index)
         self.is_cuda_available = torch.cuda.is_available()
+        self._last_result: HardwareResult | None = None
+
+    @staticmethod
+    def _resolve_device_index(device: int | str | torch.device) -> int:
+        """Resolve supported device specs to a CUDA device index."""
+        if isinstance(device, int):
+            return device
+
+        if isinstance(device, torch.device):
+            if device.type != "cuda":
+                raise ValueError(
+                    f"HardwareMetrics requires CUDA device, got: {device.type}"
+                )
+            if device.index is not None:
+                return int(device.index)
+            if not torch.cuda.is_available():
+                raise ValueError("CUDA device requested but CUDA is unavailable.")
+            return int(torch.cuda.current_device())
+
+        if isinstance(device, str):
+            value = device.strip().lower()
+            if value == "cuda":
+                if not torch.cuda.is_available():
+                    raise ValueError("CUDA device requested but CUDA is unavailable.")
+                return int(torch.cuda.current_device())
+            if value.startswith("cuda:"):
+                try:
+                    return int(value.split(":", maxsplit=1)[1])
+                except ValueError as exc:
+                    raise ValueError(f"Invalid CUDA device spec: {device}") from exc
+            raise ValueError(
+                f"Unsupported device string: {device}. Expected 'cuda' or 'cuda:N'."
+            )
+
+        raise TypeError(
+            f"Unsupported device type for HardwareMetrics: {type(device).__name__}"
+        )
 
     def _sync_cuda(self) -> None:
         """wait for GPU ops and ensure timing accuracy"""
-        torch.cuda.synchronize(self.device)
+        torch.cuda.synchronize(self.device_index)
 
     def _get_gpu_memory_reserved(self) -> int:
         """returns the current reserved GPU memory in MB"""
-        return torch.cuda.memory_reserved(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.memory_reserved(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_allocated(self) -> int:
         """returns the currently allocated GPU memory in MB"""
-        return torch.cuda.memory_allocated(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.memory_allocated(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_peak_allocated(self) -> int:
         """returns the currently allocated GPU memory in MB"""
-        return torch.cuda.max_memory_allocated(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.max_memory_allocated(self.device_index) // self.GPU_MEM_BLOCK
 
     def _get_gpu_memory_peak_reserved(self) -> int:
         """returns the peak reserved memory since the last reset (MB)"""
-        return torch.cuda.max_memory_reserved(self.device) // self.GPU_MEM_BLOCK
+        return torch.cuda.max_memory_reserved(self.device_index) // self.GPU_MEM_BLOCK
 
     def _reset_peak_memory(self) -> None:
         """reset pytorch peak memory tracker. call before measuring each stage."""
-        torch.cuda.reset_peak_memory_stats(self.device)
+        torch.cuda.reset_peak_memory_stats(self.device_index)
 
     def _get_gpu_memory_stats(self) -> dict:
         """returns Detailed statistics | Segment counts, allocation counts, free/used blocks"""
-        return torch.cuda.memory_stats(self.device)
+        return torch.cuda.memory_stats(self.device_index)
 
     def start(self, context: MetricContext) -> None:
         """Capture baseline hardware state and reset peak memory tracking.
@@ -105,6 +140,7 @@ class HardwareMetrics(BaseMetric):
         Args:
             context: The current metric context containing stage and trial info.
         """
+        self._last_result = None
         if self.is_cuda_available:
             try:
                 self._reset_peak_memory()
@@ -151,9 +187,12 @@ class HardwareMetrics(BaseMetric):
 
         if not self.is_cuda_available:
             logger.warning("No cuda device found. returning empty dict")
-            return metrics
+            self._last_result = HardwareResult()
+            return self._last_result.to_dict()
 
         try:
+            # Question: does allocated precisely capture the memory allocated to model
+            # or it capture all the memory allocated including other artifacts.
             allocated = self._get_gpu_memory_allocated()
             reserved = self._get_gpu_memory_reserved()
 
@@ -195,7 +234,13 @@ class HardwareMetrics(BaseMetric):
         except Exception as e:
             logger.exception(e)
 
-        return metrics
+        self._last_result = HardwareResult(**metrics)
+        return self._last_result.to_dict()
+
+    def to_result(self) -> HardwareResult:
+        if self._last_result is None:
+            raise RuntimeError("HardwareMetrics result is unavailable before end().")
+        return self._last_result
 
     def _get_power_draw(self) -> float:
         """Get GPU power draw in watts.
@@ -208,29 +253,7 @@ class HardwareMetrics(BaseMetric):
         return float(power_mw) / 1000.0
 
     def _get_gpu_temperature(self) -> float | None:
-        """Get GPU temperature in Celsius.
-
-        Returns:We are implementing a modular benchmark framework for MiniFlow (a speech-to-speech pipeline) based on the specifications in:
-        - benchmark_implementation.md - Architecture design
-        - benchmarking_plan.md - Metrics requirements
-        - benchmark_tickets.md - Task breakdown (22 tasks across 5 milestones)
-
-        Completed Work:
-        Last task completed: Task 1.4 (Configuration Loading and Validation)
-        - All 24 tests passing
-        - Test structure reorganized into unit_tests/ and integration_tests/
-        - Progress file updated with patterns and task logs
-        Next task: Task 2.1 - Which we have implemented and just needs reviewing and sign off
-
-        For New Session
-        To continue work, start by:
-        1. Reading benchmark_tickets.md to understand Task 1.4 requirements
-        2. Reviewing existing patterns in src/benchmark/core/base.py and src/benchmark/config/
-        3. Checking benchmark_progress.md for established patterns
-        4. Running tests: python -m pytest tests/ -v
-        5. Remember each task needs a review and sign off from me before you can move on to the  next task
-            Temperature in Celsius, or None if unavailable.
-        """
+        """Get GPU temperature in Celsius."""
         temperature = self.nvitop_device_obj.temperature()
         return float(temperature) if temperature is not None else None
 

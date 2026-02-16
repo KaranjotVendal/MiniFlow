@@ -22,18 +22,29 @@ logger = initialise_logger(__name__)
 
 DEVICE = get_device()
 
-@dataclass
-class TrialResult:
-    """Result of a single trial execution.
 
-    Attributes:
-        trial_id: Unique identifier for the trial.
-        metrics: Dictionary of collected metric values.
-        sample_id: Original sample identifier.
-    """
-    trial_id: str
-    metrics: dict[str, Any]
-    sample_id: str | None = None
+@dataclass
+class MetricStats:
+    mean: float
+    median: float
+    min: float
+    max: float
+    std: float
+    p95: float
+    p99: float
+    count: int
+
+    def to_dict(self) -> dict[str, float | int]:
+        return {
+            "mean": self.mean,
+            "median": self.median,
+            "min": self.min,
+            "max": self.max,
+            "std": self.std,
+            "p95": self.p95,
+            "p99": self.p99,
+            "count": self.count,
+        }
 
 
 @dataclass
@@ -45,15 +56,11 @@ class ExperimentSummary:
         run_id: Unique run identifier.
         num_trials: Number of main trials executed.
         metric_summaries: Dictionary of per-metric summary statistics.
-        raw_trials: List of individual trial results.
     """
     experiment: str
     run_id: str
     num_trials: int
-    # TODO: I think we can have a dataclass for metric_summaries. it will make it
-    # readable and also easy to work with IDE
-    metric_summaries: dict[str, dict[str, float]] = field(default_factory=dict)
-    raw_trials: list[dict] = field(default_factory=list)
+    metric_summaries: dict[str, "MetricStats"] = field(default_factory=dict)
 
 
 class ExperimentRunner:
@@ -131,8 +138,11 @@ class ExperimentRunner:
         enabled_metrics = config["enabled"]
         metric_configurations: dict[str, dict] = config["configurations"]
 
-        metric_configurations["hardware_basic"]["device"] = DEVICE
-        metric_configurations["hardware_detailed"]["device"] = DEVICE
+        # Pass runtime device through config; hardware metric resolves device/index.
+        if "hardware_basic" in metric_configurations:
+            metric_configurations["hardware_basic"]["device"] = DEVICE
+        if "hardware_detailed" in metric_configurations:
+            metric_configurations["hardware_detailed"]["device"] = DEVICE
 
         # NOTE: all the metrics that are enabled.
         metrics: dict[str, BaseMetric] = {}
@@ -162,8 +172,6 @@ class ExperimentRunner:
             trial_id: Unique trial identifier.
             is_warmup: Whether this is a warmup trial (excluded from summary).
 
-        Returns:
-            TrialResult containing trial metrics.
         """
         collector = BenchmarkCollector(metrics=self.metrics, config=self.config)
 
@@ -191,18 +199,10 @@ class ExperimentRunner:
             # Ensure GPU cleanup after each trial
             clear_gpu_cache()
 
-        # TODO: need to discuss how the measured data should be stored for easire saving, retrieval, and analysis.
-        # There also seems to be some duplication among data that is being saved.
-        # Save trial to storage
         self.storage.save_trial(trial_id, trial_metrics)
 
         logger.debug(f"Trial {trial_id} completed in {trial_metrics["trial_wall_time_seconds"]}" + (" (warmup)" if is_warmup else ""))
         self._trial_count += 1
-
-        # TODO: TrialResult seems to be irrelevant and can potentially be deleted.
-        _ = TrialResult(
-            trial_id=trial_id,
-            metrics=trial_metrics)
 
     def _run_warmup_trials(self, warmup_samples: int, split: str) -> None:
         if warmup_samples == 0:
@@ -239,7 +239,7 @@ class ExperimentRunner:
         main_trials = [t for t in trials if not t.get("is_warmup", False)]
         num_trials = len(main_trials)
 
-        metric_summaries: dict[str, dict[str, float]] = {}
+        metric_summaries: dict[str, MetricStats] = {}
         all_metrics: dict[str, list[float]] = {}
 
         # Keys to exclude from metric aggregation
@@ -300,27 +300,28 @@ class ExperimentRunner:
                 continue
 
             mean_val = mean(values)
-            metric_summaries[metric_name] = {
-                "mean": round(mean_val, 6),
-                "median": round(median(values), 6),
-                "min": round(min(values), 6),
-                "max": round(max(values), 6),
-                "std": round(
-                    (sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6
-                )
+            metric_summaries[metric_name] = MetricStats(
+                mean=round(mean_val, 6),
+                median=round(median(values), 6),
+                min=round(min(values), 6),
+                max=round(max(values), 6),
+                std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
                 if n > 1
                 else 0.0,
-                "p95": round(sorted_values[int(0.95 * n)], 6) if n >= 20 else round(sorted_values[-1], 6),
-                "p99": round(sorted_values[int(0.99 * n)], 6) if n >= 100 else round(sorted_values[-1], 6),
-                "count": n,
-            }
+                p95=round(sorted_values[int(0.95 * n)], 6)
+                if n >= 20
+                else round(sorted_values[-1], 6),
+                p99=round(sorted_values[int(0.99 * n)], 6)
+                if n >= 100
+                else round(sorted_values[-1], 6),
+                count=n,
+            )
 
         return ExperimentSummary(
             experiment=self.experiment,
             run_id=self.run_id,
             num_trials=num_trials,
             metric_summaries=metric_summaries,
-            raw_trials=main_trials,
         )
 
     def _run_benchmark_samples(self, num_samples: int, split: str) -> None:
@@ -373,8 +374,12 @@ class ExperimentRunner:
         summary_payload = {
             "experiment": summary.experiment,
             "run_id": summary.run_id,
+            "timestamp": datetime.now().isoformat(),
             "num_trials": summary.num_trials,
-            **summary.metric_summaries,
+            "metric_summaries": {
+                metric_name: metric_stats.to_dict()
+                for metric_name, metric_stats in summary.metric_summaries.items()
+            },
         }
         self.storage.save_summary(summary_payload)
 

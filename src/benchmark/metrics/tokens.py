@@ -2,6 +2,7 @@ import time
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.metrics.result_models import TokenResult
 
 
 @MetricRegistry.register("tokens")
@@ -27,10 +28,11 @@ class TokenMetrics(BaseMetric):
                 - track_ttft: Track time to first token (default: True)
         """
         super().__init__(config)
-        self.track_ttft: bool = config.get("track_ttft", True) if config else True
+        self.track_ttft: bool = config["track_ttft"]
         self._token_count: int = 0
         self._first_token_time: float | None = None
         self._start_time: float | None = None
+        self._last_result: TokenResult | None = None
 
     def start(self, context: MetricContext) -> None:
         """Initialize tracking for a new generation.
@@ -41,6 +43,7 @@ class TokenMetrics(BaseMetric):
         self._token_count = 0
         self._first_token_time = None
         self._start_time = time.perf_counter()
+        self._last_result = None
 
     def on_token_generated(self, token: str | None = None) -> None:
         """Record the generation of a single token.
@@ -81,25 +84,28 @@ class TokenMetrics(BaseMetric):
                 - time_per_token: Average time per token in seconds
                 - total_generation_time: Total generation time in seconds
         """
+        end_time = time.perf_counter()
+
         if self._start_time is None:
-            return {
-                "tokens_generated": 0,
-                "ttft": None,
-                "tokens_per_sec": 0.0,
-                "time_per_token": 0.0,
-                "total_generation_time": 0.0,
-            }
+            self._last_result = TokenResult(
+                tokens_generated=0,
+                ttft=None,
+                tokens_per_sec=0.0,
+                time_per_token=0.0,
+                total_generation_time=0.0,
+            )
+            return self._last_result.to_dict()
 
-        total_time = time.perf_counter() - self._start_time
-
+        total_time = end_time - self._start_time
         if self._token_count == 0:
-            return {
-                "tokens_generated": 0,
-                "ttft": None,
-                "tokens_per_sec": 0.0,
-                "time_per_token": 0.0,
-                "total_generation_time": round(total_time, 6),
-            }
+            self._last_result = TokenResult(
+                tokens_generated=0,
+                ttft=None,
+                tokens_per_sec=0.0,
+                time_per_token=0.0,
+                total_generation_time=round(total_time, 6),
+            )
+            return self._last_result.to_dict()
 
         generation_time = total_time - (self._first_token_time or 0)
 
@@ -110,10 +116,16 @@ class TokenMetrics(BaseMetric):
             tokens_per_sec = self._token_count / generation_time
             time_per_token = generation_time / self._token_count
 
-        return {
-            "tokens_generated": self._token_count,
-            "ttft": self._first_token_time,
-            "tokens_per_sec": round(tokens_per_sec, 4),
-            "time_per_token": round(time_per_token, 6),
-            "total_generation_time": round(total_time, 6),
-        }
+        self._last_result = TokenResult(
+            tokens_generated=self._token_count,
+            ttft=self._first_token_time,
+            tokens_per_sec=round(tokens_per_sec, 4),
+            time_per_token=round(time_per_token, 6),
+            total_generation_time=round(total_time, 6),
+        )
+        return self._last_result.to_dict()
+
+    def to_result(self) -> TokenResult:
+        if self._last_result is None:
+            raise RuntimeError("TokenMetrics result is unavailable before end().")
+        return self._last_result
