@@ -124,13 +124,8 @@ def run_sweep(sweep_config_path: str | Path) -> None:
         # Load full experiment configuration
         _config = load_yaml_config(config_path)
 
-
-        # TODO: Need a way to overwrite summary files and raw logs being written in
-        # the Benchmark folder.
-        _config["output_dir"] = sweep_folder
-
         # Create and run experiment
-        runner = ExperimentRunner.from_config(_config)
+        runner = ExperimentRunner.from_config(_config, sweep_folder)
         summary = runner.run()
 
         # Store result with experiment metadata

@@ -415,7 +415,7 @@ class ExperimentRunner:
         return summary
 
     @classmethod
-    def from_config(cls, config: dict) -> "ExperimentRunner":
+    def from_config(cls, config: dict, output_dir: Path = Path("Benchmark")) -> "ExperimentRunner":
         """Create an ExperimentRunner from a configuration dictionary.
 
         This method parses the configuration, creates the appropriate metrics
@@ -429,6 +429,7 @@ class ExperimentRunner:
                     "metrics": "/path/to/metrics.yml",
                     ...
                 }
+            output_dir: root dir for benchmark experiments
 
         Returns:
             Initialized ExperimentRunner instance.
@@ -447,7 +448,7 @@ class ExperimentRunner:
 
         # Create unique run ID and output directory
         run_id = f"{int(datetime.timestamp(datetime.now()))}_{experiment_name}"
-        output_dir = Path("Benchmark") / experiment_name / run_id
+        output_dir = output_dir / experiment_name / run_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
         storage = JSONLStorage(output_dir)

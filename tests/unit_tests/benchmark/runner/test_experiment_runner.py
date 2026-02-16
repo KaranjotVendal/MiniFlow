@@ -28,7 +28,7 @@ class TestExperimentRunnerConfig:
         metrics_path = _write_metrics_config(tmp_path, enabled=[], configurations={})
         config = _make_config("test_experiment", metrics_path)
 
-        runner = ExperimentRunner.from_config(config)
+        runner = ExperimentRunner.from_config(config, tmp_path)
 
         assert runner.experiment == "test_experiment"
         assert runner.run_id.endswith("_test_experiment")
@@ -44,7 +44,7 @@ class TestExperimentRunnerConfig:
         )
         config = _make_config("with_metrics", metrics_path)
 
-        runner = ExperimentRunner.from_config(config)
+        runner = ExperimentRunner.from_config(config, tmp_path)
 
         assert "timing" in runner.metrics
         assert runner.metrics["timing"].is_enabled()
@@ -56,7 +56,7 @@ class TestExperimentRunnerConfig:
             configurations={"timing": {"stages": ["asr"]}},
         )
         config = _make_config("metric_names", metrics_path)
-        runner = ExperimentRunner.from_config(config)
+        runner = ExperimentRunner.from_config(config, tmp_path)
 
         assert runner.get_metric_names() == ["timing"]
         assert runner.get_trial_count() == 0
@@ -128,7 +128,7 @@ class TestRunnerIntegration:
         ]
         mock_process_sample.return_value = None
 
-        runner = ExperimentRunner.from_config(config)
+        runner = ExperimentRunner.from_config(config, tmp_path)
         summary = runner.run()
 
         assert isinstance(summary, ExperimentSummary)
