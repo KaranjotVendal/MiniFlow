@@ -5,36 +5,138 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "experiment",
-    "run_id",
-    "timestamp",
-    "num_trials",
-    "metric_summaries"
+    "meta",
+    "pipeline",
+    "asr",
+    "llm",
+    "tts"
   ],
   "properties": {
-    "experiment": {
-      "type": "string",
-      "minLength": 1
-    },
-    "run_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "timestamp": {
-      "type": "string"
-    },
-    "num_trials": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "metric_summaries": {
+    "meta": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/stats"
+      "additionalProperties": false,
+      "required": [
+        "experiment",
+        "run_id",
+        "timestamp",
+        "num_trials",
+        "num_warmup_trials",
+        "status_counts"
+      ],
+      "properties": {
+        "experiment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "num_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "num_warmup_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "success",
+            "error"
+          ],
+          "properties": {
+            "success": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "error": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
       }
+    },
+    "pipeline": {
+      "$ref": "#/$defs/sectionGroup"
+    },
+    "asr": {
+      "$ref": "#/$defs/sectionGroup"
+    },
+    "llm": {
+      "$ref": "#/$defs/sectionGroup"
+    },
+    "tts": {
+      "$ref": "#/$defs/sectionGroup"
     }
   },
   "$defs": {
+    "sectionGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "latency",
+        "hardware",
+        "load_times",
+        "inference",
+        "quality"
+      ],
+      "properties": {
+        "latency": {
+          "$ref": "#/$defs/nestedMetricTree"
+        },
+        "hardware": {
+          "$ref": "#/$defs/nestedMetricTree"
+        },
+        "load_times": {
+          "$ref": "#/$defs/nestedMetricTree"
+        },
+        "inference": {
+          "$ref": "#/$defs/nestedMetricTree"
+        },
+        "quality": {
+          "$ref": "#/$defs/nestedMetricTree"
+        }
+      }
+    },
+    "nestedMetricTree": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/stats"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/stats"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     "stats": {
       "type": "object",
       "additionalProperties": false,
@@ -43,6 +145,9 @@
         "median",
         "min",
         "max",
+        "std",
+        "p95",
+        "p99",
         "count"
       ],
       "properties": {

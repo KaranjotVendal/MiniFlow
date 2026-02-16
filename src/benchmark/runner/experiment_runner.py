@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from statistics import mean, median
@@ -10,6 +10,7 @@ from src.benchmark.storage import BaseStorage
 from src.benchmark.core.base import BaseMetric
 from src.benchmark.collectors import BenchmarkCollector
 from src.benchmark.core.registry import MetricRegistry
+from src.benchmark.runner.summary_models import MetricStats, SummaryRecord
 from src.benchmark.storage.jsonl_storage import JSONLStorage
 from src.config.load_config import load_yaml_config
 from src.sts_pipeline import process_sample
@@ -24,43 +25,12 @@ DEVICE = get_device()
 
 
 @dataclass
-class MetricStats:
-    mean: float
-    median: float
-    min: float
-    max: float
-    std: float
-    p95: float
-    p99: float
-    count: int
-
-    def to_dict(self) -> dict[str, float | int]:
-        return {
-            "mean": self.mean,
-            "median": self.median,
-            "min": self.min,
-            "max": self.max,
-            "std": self.std,
-            "p95": self.p95,
-            "p99": self.p99,
-            "count": self.count,
-        }
-
-
-@dataclass
 class ExperimentSummary:
-    """Aggregated summary of benchmark experiment.
-
-    Attributes:
-        experiment: Experiment name.
-        run_id: Unique run identifier.
-        num_trials: Number of main trials executed.
-        metric_summaries: Dictionary of per-metric summary statistics.
-    """
+    """Structured benchmark summary metadata and payload."""
     experiment: str
     run_id: str
     num_trials: int
-    metric_summaries: dict[str, "MetricStats"] = field(default_factory=dict)
+    summary: SummaryRecord | None = None
 
 
 class ExperimentRunner:
@@ -151,8 +121,6 @@ class ExperimentRunner:
             metric_config = metric_configurations[metric_name]
             metrics[metric_name] = metric_class(metric_config)
 
-        # TODO: Can the benchmarkCollector be just initialised once here??
-        # collector = BenchmarkCollector(metrics=self.metrics, config=self.config)
         return metrics
 
     def _run_trial(
@@ -187,7 +155,6 @@ class ExperimentRunner:
                 config=self.config,
                 collector=collector,
                 run_id=self.output_dir.name,
-                folder=str(self.output_dir),
                 device=self.device
             )
             trial_metrics = collector.end_trial(status="success")
@@ -218,111 +185,176 @@ class ExperimentRunner:
         self._trial_count = 0
         logger.info("Warmup complete.")
 
-    def _generate_summary(self) -> ExperimentSummary:
-        """Generate aggregated summary statistics from trial results.
-
-        Loads trial data from storage (raw_logs.jsonl) and computes summary
-        statistics including mean, median, min, max, std, p95, p99, and count
-        for each numeric metric.
-
-        Returns:
-            ExperimentSummary with aggregated statistics.
-        """
-        # TODO: we need to make sure we are summarises all the data collected and
-        # it is done in a way that help us with the project.
-        # For example we need latencies, gpu metrics, quality metrics,
-
-        # Load trials from storage - load_trials() returns list of dicts
-        trials: list[dict] = self.storage.load_trials()
-
-        # Filter out warmup trials
-        main_trials = [t for t in trials if not t.get("is_warmup", False)]
-        num_trials = len(main_trials)
-
-        metric_summaries: dict[str, MetricStats] = {}
-        all_metrics: dict[str, list[float]] = {}
-
-        # Keys to exclude from metric aggregation
-        exclude_keys = {
-            "trial_id",
-            "is_warmup",
-            "sample_id",
-            "exp_name",
-            "timestamp_start",
-            "status",
-            "error",
-        }
-
-        def _normalize_metric_key(key: str) -> str:
-            normalized = []
-            for ch in key.lower():
-                if ch.isalnum() or ch == "_":
-                    normalized.append(ch)
-                else:
-                    normalized.append("_")
-            value = "".join(normalized)
-            while "__" in value:
-                value = value.replace("__", "_")
-            return value.strip("_")
-
-        def _flatten_numeric_metrics(data: Any, prefix: str = "") -> dict[str, float]:
-            flattened: dict[str, float] = {}
-            if isinstance(data, dict):
-                for key, value in data.items():
-                    next_prefix = f"{prefix}_{key}" if prefix else str(key)
-                    flattened.update(_flatten_numeric_metrics(value, next_prefix))
-                return flattened
-
-            # bool is a subclass of int; exclude it from numeric aggregation.
-            if isinstance(data, bool):
-                return flattened
-            if isinstance(data, (int, float)):
-                metric_key = _normalize_metric_key(prefix)
-                if metric_key:
-                    flattened[metric_key] = float(data)
-            return flattened
-
-        for trial in main_trials:
-            filtered_trial = {
-                key: value for key, value in trial.items() if key not in exclude_keys
-            }
-            flattened_metrics = _flatten_numeric_metrics(filtered_trial)
-            for key, value in flattened_metrics.items():
-                if key not in all_metrics:
-                    all_metrics[key] = []
-                all_metrics[key].append(value)
-
-        for metric_name, values in all_metrics.items():
-            sorted_values = sorted(values)
-            n = len(sorted_values)
-
-            if n == 0:
-                continue
-
-            mean_val = mean(values)
-            metric_summaries[metric_name] = MetricStats(
-                mean=round(mean_val, 6),
-                median=round(median(values), 6),
-                min=round(min(values), 6),
-                max=round(max(values), 6),
-                std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
-                if n > 1
-                else 0.0,
-                p95=round(sorted_values[int(0.95 * n)], 6)
-                if n >= 20
-                else round(sorted_values[-1], 6),
-                p99=round(sorted_values[int(0.99 * n)], 6)
-                if n >= 100
-                else round(sorted_values[-1], 6),
-                count=n,
+    @staticmethod
+    def _compute_stats(values: list[float]) -> MetricStats:
+        sorted_values = sorted(values)
+        n = len(sorted_values)
+        if n == 0:
+            return MetricStats(
+                mean=0.0, median=0.0, min=0.0, max=0.0, std=0.0, p95=0.0, p99=0.0, count=0
             )
 
-        return ExperimentSummary(
-            experiment=self.experiment,
-            run_id=self.run_id,
-            num_trials=num_trials,
-            metric_summaries=metric_summaries,
+        mean_val = mean(values)
+        return MetricStats(
+            mean=round(mean_val, 6),
+            median=round(median(values), 6),
+            min=round(min(values), 6),
+            max=round(max(values), 6),
+            std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
+            if n > 1
+            else 0.0,
+            p95=round(sorted_values[int(0.95 * n)], 6)
+            if n >= 20
+            else round(sorted_values[-1], 6),
+            p99=round(sorted_values[int(0.99 * n)], 6)
+            if n >= 100
+            else round(sorted_values[-1], 6),
+            count=n,
         )
+
+    @staticmethod
+    def _set_nested(target: dict[str, Any], path: list[str], value: Any) -> None:
+        current = target
+        for key in path[:-1]:
+            if key not in current or not isinstance(current[key], dict):
+                current[key] = {}
+            current = current[key]
+        current[path[-1]] = value
+
+    def _generate_summary(self) -> SummaryRecord:
+        trials: list[dict] = self.storage.load_trials()
+        main_trials = [t for t in trials if not t.get("is_warmup", False)]
+        warmup_trials = [t for t in trials if t.get("is_warmup", False)]
+
+        status_counts = {"success": 0, "error": 0}
+        for trial in main_trials:
+            status = trial.get("status")
+            if status == "success":
+                status_counts["success"] += 1
+            else:
+                status_counts["error"] += 1
+
+        summary_dict: dict[str, Any] = {
+            "meta": {
+                "experiment": self.experiment,
+                "run_id": self.run_id,
+                "timestamp": datetime.now().isoformat(),
+                "num_trials": len(main_trials),
+                "num_warmup_trials": len(warmup_trials),
+                "status_counts": status_counts,
+            },
+            "pipeline": {
+                "latency": {},
+                "hardware": {},
+                "load_times": {},
+                "inference": {},
+                "quality": {},
+            },
+            "asr": {
+                "latency": {},
+                "hardware": {},
+                "load_times": {},
+                "inference": {},
+                "quality": {},
+            },
+            "llm": {
+                "latency": {},
+                "hardware": {},
+                "load_times": {},
+                "inference": {},
+                "quality": {},
+            },
+            "tts": {
+                "latency": {},
+                "hardware": {},
+                "load_times": {},
+                "inference": {},
+                "quality": {},
+            },
+        }
+
+        numeric_series: dict[tuple[str, ...], list[float]] = {}
+        ttft_mode_counts: dict[str, int] = {}
+
+        def add_numeric(path: list[str], value: Any) -> None:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return
+            key = tuple(path)
+            numeric_series.setdefault(key, []).append(float(value))
+
+        hardware_phase_map = {
+            "asr_model_load": ("asr", "hardware", "model_load"),
+            "asr_inference": ("asr", "hardware", "inference"),
+            "llm_model_load": ("llm", "hardware", "model_load"),
+            "llm_tokenizer": ("llm", "hardware", "tokenizer_load"),
+            "llm_pipeline": ("llm", "hardware", "pipeline_load"),
+            "llm_inference": ("llm", "hardware", "inference"),
+            "tts_model_load": ("tts", "hardware", "model_load"),
+            "tts_processor_load": ("tts", "hardware", "processor_load"),
+            "tts_inference": ("tts", "hardware", "inference"),
+        }
+
+        for trial in main_trials:
+            add_numeric(["pipeline", "latency", "trial_wall_time_seconds"], trial.get("trial_wall_time_seconds"))
+            add_numeric(["pipeline", "latency", "total_latency_seconds"], trial.get("total_latency_seconds"))
+            add_numeric(["pipeline", "load_times", "total_model_load_time_seconds"], trial.get("total_model_load_time"))
+            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_allocated_mb"], trial.get("gpu_memory_allocated_mb"))
+            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_reserved_mb"], trial.get("gpu_memory_reserved_mb"))
+            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_peak_mb"], trial.get("gpu_memory_peak_mb"))
+            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_efficiency"], trial.get("gpu_memory_efficiency"))
+
+            stage_latencies = trial.get("latencies", {})
+            add_numeric(["asr", "latency", "inference_seconds"], stage_latencies.get("asr"))
+            add_numeric(["llm", "latency", "inference_seconds"], stage_latencies.get("llm"))
+            add_numeric(["tts", "latency", "inference_seconds"], stage_latencies.get("tts"))
+
+            add_numeric(["asr", "load_times", "model_load_seconds"], (trial.get("asr_model_load") or {}).get("total_time"))
+            add_numeric(["llm", "load_times", "model_load_seconds"], (trial.get("llm_model_load") or {}).get("total_time"))
+            add_numeric(["llm", "load_times", "tokenizer_load_seconds"], (trial.get("llm_tokenizer_load") or {}).get("total_time"))
+            add_numeric(["llm", "load_times", "pipeline_load_seconds"], (trial.get("llm_pipeline_load") or {}).get("total_time"))
+            add_numeric(["tts", "load_times", "model_load_seconds"], (trial.get("tts_model_load") or {}).get("total_time"))
+            add_numeric(["tts", "load_times", "processor_load_seconds"], (trial.get("tts_processor_load") or {}).get("total_time"))
+
+            add_numeric(["llm", "inference", "tokens_generated"], trial.get("tokens_generated"))
+            add_numeric(["llm", "inference", "tokens_per_sec"], trial.get("tokens_per_sec"))
+            add_numeric(["llm", "inference", "time_per_token_seconds"], trial.get("time_per_token"))
+            add_numeric(["llm", "inference", "total_generation_time_seconds"], trial.get("total_generation_time"))
+            add_numeric(["llm", "inference", "ttft_seconds"], trial.get("ttft"))
+            add_numeric(["llm", "inference", "cache_hits"], trial.get("cache_hits"))
+            add_numeric(["llm", "inference", "cache_misses"], trial.get("cache_misses"))
+            add_numeric(["llm", "inference", "models_loaded"], trial.get("models_loaded"))
+
+            add_numeric(["asr", "quality", "wer"], trial.get("wer"))
+            add_numeric(["tts", "quality", "utmos"], trial.get("utmos"))
+
+            ttft_mode = trial.get("ttft_mode")
+            if isinstance(ttft_mode, str) and ttft_mode:
+                ttft_mode_counts[ttft_mode] = ttft_mode_counts.get(ttft_mode, 0) + 1
+
+            hardware_phase_metrics = trial.get("hardware_phase_metrics", {})
+            if isinstance(hardware_phase_metrics, dict):
+                for phase_name, base_path in hardware_phase_map.items():
+                    phase_data = hardware_phase_metrics.get(phase_name)
+                    if not isinstance(phase_data, dict):
+                        continue
+                    for metric_name in (
+                        "gpu_memory_allocated_mb",
+                        "gpu_memory_reserved_mb",
+                        "gpu_memory_peak_mb",
+                        "gpu_memory_efficiency",
+                    ):
+                        add_numeric(
+                            [*base_path, metric_name],
+                            phase_data.get(metric_name),
+                        )
+
+        for path, values in numeric_series.items():
+            self._set_nested(summary_dict, list(path), self._compute_stats(values).to_dict())
+
+        self._set_nested(
+            summary_dict, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts
+        )
+        return SummaryRecord.from_dict(summary_dict)
 
     def _run_benchmark_samples(self, num_samples: int, split: str) -> None:
         trial_iter = self._stream_samples(num_samples=num_samples, split=split)
@@ -347,12 +379,7 @@ class ExperimentRunner:
         return self._trial_count
 
     def run(self) -> ExperimentSummary:
-        """This method runs warmup trials first, then main trials, collects all
-        metrics, generates summary statistics, and persists results.
-
-        Returns:
-            ExperimentSummary containing all results and statistics.
-        """
+        """Run warmups/main trials and persist structured summary."""
         dataset_config = self.config["dataset"]
         num_samples = dataset_config["num_samples"]
         warmup_samples = dataset_config["warmup_samples"]
@@ -366,22 +393,19 @@ class ExperimentRunner:
         logger.info(f"Running {num_samples} main trials...")
         self._run_benchmark_samples(num_samples=num_samples, split=split)
 
-        # Generate summary
         logger.info("Generating summary statistics...")
-        summary = self._generate_summary()
-
-        # Save summary with run metadata plus aggregated metric summaries.
-        summary_payload = {
-            "experiment": summary.experiment,
-            "run_id": summary.run_id,
-            "timestamp": datetime.now().isoformat(),
-            "num_trials": summary.num_trials,
-            "metric_summaries": {
-                metric_name: metric_stats.to_dict()
-                for metric_name, metric_stats in summary.metric_summaries.items()
-            },
-        }
+        summary_record = self._generate_summary()
+        summary_payload = summary_record.to_dict()
         self.storage.save_summary(summary_payload)
+        meta = summary_record.meta
+
+        # TODO: It seems dataclasses for ExperimentSummary can be simplified.
+        summary = ExperimentSummary(
+            experiment=meta.experiment,
+            run_id=meta.run_id,
+            num_trials=meta.num_trials,
+            summary=summary_record,
+        )
 
         logger.info("Experiment complete!")
         logger.info(f"Results saved to: {self.output_dir}")
@@ -390,7 +414,7 @@ class ExperimentRunner:
         return summary
 
     @classmethod
-    def from_config(cls, config: dict) -> "ExperimentRunner":
+    def from_config(cls, config: dict, output_dir: Path = Path("Benchmark")) -> "ExperimentRunner":
         """Create an ExperimentRunner from a configuration dictionary.
 
         This method parses the configuration, creates the appropriate metrics
@@ -404,6 +428,7 @@ class ExperimentRunner:
                     "metrics": "/path/to/metrics.yml",
                     ...
                 }
+            output_dir: root dir for benchmark experiments
 
         Returns:
             Initialized ExperimentRunner instance.
@@ -422,7 +447,7 @@ class ExperimentRunner:
 
         # Create unique run ID and output directory
         run_id = f"{int(datetime.timestamp(datetime.now()))}_{experiment_name}"
-        output_dir = Path("Benchmark") / experiment_name / run_id
+        output_dir = output_dir / experiment_name / run_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
         storage = JSONLStorage(output_dir)

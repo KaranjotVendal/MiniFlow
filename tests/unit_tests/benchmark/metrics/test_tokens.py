@@ -15,8 +15,6 @@ def test_registers_tokens():
 @pytest.mark.parametrize(
     "config,expected",
     [
-        (None, True),
-        ({}, True),
         ({"track_ttft": True}, True),
         ({"track_ttft": False}, False),
     ],
@@ -32,7 +30,7 @@ class TestTokenMetricsBasic:
 
     def test_token_counting(self):
         """Test that tokens are counted correctly."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -51,7 +49,7 @@ class TestTokenMetricsBasic:
 
     def test_add_tokens_non_streaming(self):
         """Test add_tokens for non-streaming mode."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -68,7 +66,7 @@ class TestTokenMetricsBasic:
 
     def test_ttft_calculation(self):
         """Test TTFT is calculated correctly."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -87,7 +85,7 @@ class TestTokenMetricsBasic:
 
     def test_tps_calculation(self):
         """Test tokens per second is calculated correctly (excludes TTFT)."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -117,7 +115,7 @@ class TestTokenMetricsEdgeCases:
 
     def test_no_tokens_generated(self):
         """Test metrics when no tokens are generated."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -156,7 +154,7 @@ class TestTokenMetricsEdgeCases:
 
     def test_single_token(self):
         """Test with only one token generated."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -178,7 +176,7 @@ class TestTokenMetricsEdgeCases:
     # Some tokenizers yield empty strings or None for special tokens
     def test_empty_token_handling(self):
         """Test that empty tokens and None values are handled gracefully."""
-        metric = TokenMetrics()
+        metric = TokenMetrics({"track_ttft": True})
         context = MetricContext(
             stage=Stage.LLM,
             trial_id="trial_001",
@@ -197,7 +195,7 @@ class TestTokenMetricsEdgeCases:
 
 def test_streaming_token_generation():
     """Test typical streaming token generation scenario."""
-    metric = TokenMetrics()
+    metric = TokenMetrics({"track_ttft": True})
     context = MetricContext(
         stage=Stage.LLM,
         trial_id="trial_001",
@@ -232,7 +230,7 @@ def test_streaming_token_generation():
 
 def test_multiple_trials_independent():
     """Verify trials have independent tracking."""
-    metric = TokenMetrics()
+    metric = TokenMetrics({"track_ttft": True})
     context1 = MetricContext(
         stage=Stage.LLM,
         trial_id="trial_001",
@@ -261,7 +259,7 @@ def test_multiple_trials_independent():
 
 def test_combined_streaming_and_non_streaming():
     """Test combining on_token_generated with add_tokens."""
-    metric = TokenMetrics()
+    metric = TokenMetrics({"track_ttft": True})
     context = MetricContext(
         stage=Stage.LLM,
         trial_id="trial_001",

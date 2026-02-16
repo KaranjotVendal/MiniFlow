@@ -41,11 +41,9 @@ class ProcessedSample:
 def process_sample(
     config: dict,
     sample: AudioSample,
-    # TODO: i think we can resolve the run_id and folder parameter into one param.
     run_id: str,
     collector: "BenchmarkCollector",
     device: torch.device | str,
-    folder: str = "./",
     history: list[dict] | None = None,
     stream_audio: bool = False
 ) -> ProcessedSample:

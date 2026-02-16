@@ -90,65 +90,54 @@ def run_vibevoice(config: dict,
     device_str, load_dtype, attn_impl = _device_attn_implementation(device)
     logger.info(f"Using dtype: {load_dtype}, attn_implementation: {attn_impl}")
 
-    # Load Processor
-    collector.hardware_metrics.start(collector.context)
-    collector.lifecycle_metrics.record_load_start(
-        model_name="vibevoice_processor",source="remote(HF)")
+    processor = None
+    model = None
+    inputs = None
+    tts_waveform = None
+    out_sample_rate = 24000
 
-    processor = VibeVoiceStreamingProcessor.from_pretrained(config["model_id"])
-
-    processor_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
-    collector.record_phase_metrics(
-        "tts_processor_load_gpu_metrics",
-        collector.hardware_metrics.end(collector.context),
-    )
-    if processor_load_event is not None:
-        processor_load_event["stage"] = "tts"
-        processor_load_event["cached"] = False
-        processor_load_event["success"] = True
-
-    # Load model with proper device handling
     try:
-
+        # Load Processor
         collector.hardware_metrics.start(collector.context)
         collector.lifecycle_metrics.record_load_start(
-            model_name=config["model_name"],source="remote(HF)")
+            model_name="vibevoice_processor", source="remote(HF)"
+        )
 
-        if device_str == "mps":
-            model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                config["model_id"],
-                dtype=load_dtype,
-                attn_implementation=attn_impl,
-                device_map=None,
-            )
-            model.to(device_str)
-        else:  # cuda or cpu
-            model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                config["model_id"],
-                dtype=load_dtype,
-                device_map=device_str,
-                attn_implementation=attn_impl,
-            )
+        processor = VibeVoiceStreamingProcessor.from_pretrained(config["model_id"])
 
-        model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
+        processor_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
         collector.record_phase_metrics(
-            "tts_model_load_gpu_metrics",
+            "tts_processor_load_gpu_metrics",
             collector.hardware_metrics.end(collector.context),
         )
-        if model_load_event is not None:
-            model_load_event["stage"] = "tts"
-            model_load_event["cached"] = False
-            model_load_event["success"] = True
+        if processor_load_event is not None:
+            processor_load_event["stage"] = "tts"
+            processor_load_event["cached"] = False
+            processor_load_event["success"] = True
 
-    except Exception as e:
-        if attn_impl == 'flash_attention_2':
-            logger.warning(f"Flash attention failed, falling back to SDPA: {e}")
-            model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                config["model_id"],
-                dtype=load_dtype,
-                device_map=device_str,
-                attn_implementation='sdpa'
+        # Load model with proper device handling
+        try:
+            collector.hardware_metrics.start(collector.context)
+            collector.lifecycle_metrics.record_load_start(
+                model_name=config["model_name"], source="remote(HF)"
             )
+
+            if device_str == "mps":
+                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                    config["model_id"],
+                    dtype=load_dtype,
+                    attn_implementation=attn_impl,
+                    device_map=None,
+                )
+                model.to(device_str)
+            else:  # cuda or cpu
+                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                    config["model_id"],
+                    dtype=load_dtype,
+                    device_map=device_str,
+                    attn_implementation=attn_impl,
+                )
+
             model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
             collector.record_phase_metrics(
                 "tts_model_load_gpu_metrics",
@@ -158,66 +147,97 @@ def run_vibevoice(config: dict,
                 model_load_event["stage"] = "tts"
                 model_load_event["cached"] = False
                 model_load_event["success"] = True
-        else:
-            model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
-            if model_load_event is not None:
-                model_load_event["stage"] = "tts"
-                model_load_event["cached"] = False
-                model_load_event["success"] = False
-                model_load_event["error_type"] = "TTSLoadOrInferenceError"
-            raise
 
-    model.eval()
-    model.set_ddpm_inference_steps(num_steps=5)
+        except Exception as e:
+            if attn_impl == "flash_attention_2":
+                logger.warning(f"Flash attention failed, falling back to SDPA: {e}")
+                # Release any partially-loaded model before retry.
+                if model is not None:
+                    del model
+                    model = None
+                clear_gpu_cache()
 
-    _torch_compatibility_fix(model)
+                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                    config["model_id"],
+                    dtype=load_dtype,
+                    device_map=device_str,
+                    attn_implementation="sdpa",
+                )
+                model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
+                collector.record_phase_metrics(
+                    "tts_model_load_gpu_metrics",
+                    collector.hardware_metrics.end(collector.context),
+                )
+                if model_load_event is not None:
+                    model_load_event["stage"] = "tts"
+                    model_load_event["cached"] = False
+                    model_load_event["success"] = True
+            else:
+                model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
+                if model_load_event is not None:
+                    model_load_event["stage"] = "tts"
+                    model_load_event["cached"] = False
+                    model_load_event["success"] = False
+                    model_load_event["error_type"] = "TTSLoadOrInferenceError"
+                raise
 
-    all_prefilled_outputs = _handle_speaker_voice(config, device_str)
+        model.eval()
+        model.set_ddpm_inference_steps(num_steps=5)
+        _torch_compatibility_fix(model)
 
-    inputs = processor.process_input_with_cached_prompt(
-        text=llm_response,
-        cached_prompt=all_prefilled_outputs,
-        padding=True,
-        return_tensors="pt",
-        return_attention_mask=True
-    )
-
-    for k, v in inputs.items():
-        if torch.is_tensor(v):
-            inputs[k] = v.to(device_str)
-
-    # inference
-    collector.hardware_metrics.start(collector.context)
-    collector.timing_metrics.record_stage_start("tts_inference_latency")
-
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=None,
-            cfg_scale=config["cfg_scale"],
-            tokenizer=processor.tokenizer,
-            generation_config={"do_sample": False},
-            verbose=True,
-            all_prefilled_outputs=copy.deepcopy(all_prefilled_outputs)
+        all_prefilled_outputs = _handle_speaker_voice(config, device_str)
+        inputs = processor.process_input_with_cached_prompt(
+            text=llm_response,
+            cached_prompt=all_prefilled_outputs,
+            padding=True,
+            return_tensors="pt",
+            return_attention_mask=True,
         )
 
-    collector.timing_metrics.record_stage_end("tts_inference_latency")
-    collector.record_phase_metrics(
-        "tts_inference_gpu_metrics",
-        collector.hardware_metrics.end(collector.context),
-    )
+        for k, v in inputs.items():
+            if torch.is_tensor(v):
+                inputs[k] = v.to(device_str)
 
-    tts_waveform = outputs.speech_outputs[0].squeeze().cpu()
-    out_sample_rate = 24000
+        # inference
+        collector.hardware_metrics.start(collector.context)
+        collector.timing_metrics.record_stage_start("tts_inference_latency")
 
-    # Calculate UTMOS score
-    utmos_score: dict[str, float] = collector.quality_metrics.evaluate(evaluator="utmos",
-        prediction=tts_waveform, output_sample_rate=out_sample_rate)
-    collector.current_trial.quality.utmos = utmos_score["utmos"]
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=None,
+                cfg_scale=config["cfg_scale"],
+                tokenizer=processor.tokenizer,
+                generation_config={"do_sample": False},
+                verbose=True,
+                all_prefilled_outputs=copy.deepcopy(all_prefilled_outputs),
+            )
 
-    # Cleanup
-    del processor, model, inputs
-    clear_gpu_cache()
+        collector.timing_metrics.record_stage_end("tts_inference_latency")
+        collector.record_phase_metrics(
+            "tts_inference_gpu_metrics",
+            collector.hardware_metrics.end(collector.context),
+        )
 
-    logger.info(f"VibeVoice: Generated {len(tts_waveform)/out_sample_rate:.2f}s of audio")
-    return tts_waveform, out_sample_rate
+        tts_waveform = outputs.speech_outputs[0].squeeze().cpu()
+
+        # Calculate UTMOS score
+        utmos_score: dict[str, float] = collector.quality_metrics.evaluate(
+            evaluator="utmos",
+            prediction=tts_waveform,
+            output_sample_rate=out_sample_rate,
+        )
+        collector.current_trial.quality.utmos = utmos_score["utmos"]
+
+        logger.info(
+            f"VibeVoice: Generated {len(tts_waveform)/out_sample_rate:.2f}s of audio"
+        )
+        return tts_waveform, out_sample_rate
+    finally:
+        if inputs is not None:
+            del inputs
+        if model is not None:
+            del model
+        if processor is not None:
+            del processor
+        clear_gpu_cache()

@@ -108,8 +108,6 @@ def test_get_nonexistent_evaluator_raises_key_error():
 @pytest.mark.parametrize(
     "config,expected_count,expected_keys",
     [
-        (None, 1, {"wer"}),
-        ({}, 1, {"wer"}),
         ({"evaluators": ["wer", "utmos"]}, 2, {"wer", "utmos"}),
         ({"evaluators": ["wer"]}, 1, {"wer"}),
     ],

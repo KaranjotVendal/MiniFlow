@@ -1,0 +1,32 @@
+experiment:
+  description: 'Test new benchmark framework'
+  name: new_baseline
+benchmark:
+  enable_streaming_audio: false
+  save_processed_samples: false
+dataset:
+  name: globe
+  num_samples: 20
+  split: test
+  warmup_samples: 3
+metrics: "metrics.yml"
+asr:
+  model_id: openai/whisper-small
+  model_name: whisper-small
+llm:
+  kv_cache: false
+  max_new_tokens: 100
+  model_id: Qwen/Qwen2.5-3B-Instruct
+  model_name: Qwen2.5-3B
+  quantization:
+    compute_dtype: bf16
+    enabled: true
+    load_in_4bit: true
+    quant_type: nf4
+    use_double_quant: true
+tts:
+  cfg_scale: 1.5
+  language: en
+  model_id: microsoft/VibeVoice-Realtime-0.5B
+  model_name: vibevoice
+  speaker: ''
