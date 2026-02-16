@@ -155,7 +155,6 @@ class ExperimentRunner:
                 config=self.config,
                 collector=collector,
                 run_id=self.output_dir.name,
-                folder=str(self.output_dir),
                 device=self.device
             )
             trial_metrics = collector.end_trial(status="success")
