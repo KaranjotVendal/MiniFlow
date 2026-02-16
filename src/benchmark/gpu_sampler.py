@@ -8,6 +8,7 @@ import subprocess
 
 GPU_MEM_BLOCK = 1024 * 1024
 
+# TODO: this script can be deleted once we implement hardware.py
 
 def get_gpu_memory_reserved(device: int = 0) -> int:
     """returns the current reserved GPU memory in MB"""

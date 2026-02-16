@@ -85,7 +85,7 @@ class BaseMetric(ABC):
         pass
 
     @abstractmethod
-    def end(self, context: MetricContext) -> dict[str, Any]:
+    def end(self, context: MetricContext) -> dict[str, Any] | None:
         """Called when metric collection ends.
 
         Subclasses should override this method to finalize measurements

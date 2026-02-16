@@ -14,7 +14,7 @@ Benchmark/
 
 .zed
 globe_samples/
-metrics/
+./metrics/
 sanity/
 
 src/.ipynb_checkpoints/
