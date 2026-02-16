@@ -1,0 +1,18 @@
+enabled: ["timing", "hardware_basic", "model_lifecycle", "quality", "tokens"]
+configurations:
+    timing:
+      stages: [asr, llm, tts, pipeline]
+    hardware_basic:
+      device: 0
+      track_power: false
+      track_fragmentation: false
+    hardware_detailed:
+      device: 0
+      track_power: true
+      track_fragmentation: true
+      waste_threshold: 0.3
+    model_lifecycle:
+    quality:
+      evaluators: [wer, utmos]
+    tokens:
+      track_ttft: false

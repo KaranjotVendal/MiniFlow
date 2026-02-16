@@ -89,9 +89,9 @@ MiniFlow's speech-to-speech pipeline has been benchmarked using two different TT
 uv run python src/benchmark/runner.py
 
 # Run single sample for testing
-uv run python -m src.tests.debug_tts
-uv run python -m src.tests.debug_llm
-uv run python -m src.tests.debug_asr
+uv run python -m src.debug_scripts.debug_tts
+uv run python -m src.debug_scripts.debug_llm
+uv run python -m src.debug_scripts.debug_asr
 
 # Run memory experiments
 uv run python src/scripts/run_memory_experiments.py
