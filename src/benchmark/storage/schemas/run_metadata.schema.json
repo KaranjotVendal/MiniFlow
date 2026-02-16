@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "run_metadata.schema.json",
+  "title": "MiniFlow Run Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "experiment",
+    "run_id",
+    "timestamp",
+    "num_samples",
+    "warmup",
+    "dataset_split"
+  ],
+  "properties": {
+    "experiment": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": ["string", "number"] },
+    "num_samples": { "type": "integer", "minimum": 0 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "dataset_split": { "type": "string", "minLength": 1 }
+  }
+}
