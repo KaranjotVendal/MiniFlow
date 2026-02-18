@@ -11,7 +11,7 @@ try:
 except Exception:
     HAVE_MARKDOWN = False
 
-
+# TODO: refactor w.r.t new benchmark framwork
 def _embed_image_tag(img_path: Path) -> str:
     """Return HTML <img> tag with image data URI (embedded)"""
     img_bytes = img_path.read_bytes()
