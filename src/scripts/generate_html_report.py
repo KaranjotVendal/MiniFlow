@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 from src.report.html_generator import generate_html_report_from_md
 
-
+# TODO: refactor w.r.t new benchmark framework
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(

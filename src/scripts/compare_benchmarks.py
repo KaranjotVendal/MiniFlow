@@ -28,7 +28,7 @@ from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
 
-
+# TODO: refactor w.r.t new benhcmark framwork
 def parse_config(config_path: Path) -> dict[str, str]:
     """Parse config.yml to extract readable component names."""
     result = {"asr": "", "llm": "", "tts": ""}

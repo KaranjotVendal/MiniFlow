@@ -2,7 +2,7 @@ import argparse
 
 from src.report.sweep_report_generator import generate_sweep_report
 
-
+# TODO: refactor w.r.t new benchmark framework
 def main():
     parser = argparse.ArgumentParser(description="Generate sweep report")
     parser.add_argument("--sweep_dir", required=True)

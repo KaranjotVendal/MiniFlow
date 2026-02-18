@@ -8,7 +8,7 @@ from src.report.plotting import (
     save_latency_percentiles_plot,
 )
 
-
+# TODO: needs to be refactored with newer benchmark framework
 def generate_experiment_report(exp_folder: str | Path):
     exp_folder = Path(exp_folder)
     summary_path = exp_folder / "summary.json"

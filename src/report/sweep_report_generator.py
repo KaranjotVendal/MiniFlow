@@ -7,6 +7,7 @@ from datetime import datetime
 from src.report.plotting import save_bar_plot
 
 
+# TODO: needs to be refactored with newer benchmark or it could also be replaced by grafana
 def generate_sweep_report(sweep_folder: str | Path):
     sweep_folder = Path(sweep_folder)
     sweep_summary_path = sweep_folder / "sweep_summary.json"
