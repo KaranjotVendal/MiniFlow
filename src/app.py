@@ -7,6 +7,7 @@ Entry point for both:
 """
 
 import base64
+import asyncio
 import io
 import os
 import time
@@ -33,9 +34,12 @@ logger = initialise_logger(__name__)
 
 app = FastAPI(
     title="MiniFlow",
-    version="0.1",
+    version="0.0.1",
     description="Low-latency speech-to-speech agent",
 )
+
+MAX_AUDIO_UPLOAD_BYTES = int(os.getenv("MINIFLOW_MAX_AUDIO_UPLOAD_BYTES", str(10 * 1024 * 1024)))
+REQUEST_TIMEOUT_SECONDS = float(os.getenv("MINIFLOW_REQUEST_TIMEOUT_SECONDS", "120"))
 
 # Configuration - loaded from YAML or environment
 def load_app_config() -> dict:
@@ -141,9 +145,27 @@ async def speech_to_speech(audio_file: UploadFile):
     """
     request_id = str(uuid.uuid4())
     start_time = time.time()
-    
+
     try:
+        if audio_file.content_type and not audio_file.content_type.startswith("audio/"):
+            raise HTTPException(status_code=415, detail="unsupported_media_type")
+
         contents = await audio_file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="empty_audio_file")
+        if len(contents) > MAX_AUDIO_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="audio_file_too_large")
+
+        missing_fields = _readiness_missing_fields(APP_CONFIG)
+        if missing_fields:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "service_not_ready",
+                    "missing_fields": missing_fields,
+                },
+            )
+
         waveform, sampling_rate = torchaudio.load(io.BytesIO(contents))
 
         sample = AudioSample(
@@ -155,19 +177,23 @@ async def speech_to_speech(audio_file: UploadFile):
             utmos=None,
             sampling_rate=sampling_rate,
         )
-        
+
         # Get device
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+
         # Process sample (collector=None for production mode - lightweight telemetry)
-        result = process_sample(
-            config=APP_CONFIG,
-            sample=sample,
-            run_id=request_id,
-            collector=None,  # Production mode - no benchmark collection
-            device=device,
-            history=None,
-            stream_audio=False
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                process_sample,
+                config=APP_CONFIG,
+                sample=sample,
+                run_id=request_id,
+                collector=None,  # Production mode - no benchmark collection
+                device=device,
+                history=None,
+                stream_audio=False,
+            ),
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
         # Encode output waveform to base64 WAV for JSON transport
@@ -191,7 +217,7 @@ async def speech_to_speech(audio_file: UploadFile):
             "latency_ms": round(latency_ms, 2),
             "release_id": os.getenv("RELEASE_ID", "dev"),
         }
-        
+
         logger.info(
             f"/s2s request completed",
             extra={
@@ -200,12 +226,21 @@ async def speech_to_speech(audio_file: UploadFile):
                 "release_id": response_payload["release_id"],
             }
         )
-        
+
         return JSONResponse(response_payload)
 
+    except HTTPException:
+        raise
+    except asyncio.TimeoutError:
+        logger.exception(f"/s2s request timed out: {request_id}")
+        raise HTTPException(status_code=504, detail="request_timeout")
+    except RuntimeError as e:
+        # Covers invalid/unsupported audio decode errors surfaced by torchaudio stack.
+        logger.exception(f"Invalid audio payload for request {request_id}")
+        raise HTTPException(status_code=400, detail="invalid_audio_payload") from e
     except Exception as e:
         logger.exception(f"Error in /s2s request {request_id}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal_error")
 
 
 # WebSocket Endpoint: stub with clear message
@@ -213,7 +248,7 @@ async def speech_to_speech(audio_file: UploadFile):
 async def websocket_s2s(ws: WebSocket):
     """
     Real-time speech-to-speech streaming interface.
-    
+
     NOTE: This endpoint is deferred to v2. Currently returns clear error.
     """
     await ws.accept()
