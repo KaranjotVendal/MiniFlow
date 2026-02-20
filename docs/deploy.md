@@ -25,3 +25,19 @@ Add AWS ECR publish (or GHCR -> ECR mirroring) in a follow-up PR.
 Reasons:
 1. AWS-native runtime alignment for ECS/Fargate production path.
 2. Better IAM-native access control in AWS environments.
+
+## Staging Deployment (AWS ECS/Fargate)
+
+Infra assets:
+1. `infra/aws/terraform/*`
+2. `.github/workflows/deploy-staging.yml`
+
+Workflow:
+1. Publish image via CD workflow (`sha-<shortsha>` tag).
+2. Run `Deploy Staging` workflow and pass `image_tag`.
+3. Workflow applies Terraform and runs `/health` + `/ready` checks.
+
+Cost controls:
+1. Staging defaults to minimal capacity (`desired_count=1`).
+2. Budget alarms configured at `$10/$25/$50` when alert email is provided.
+3. Shut down staging when inactive.

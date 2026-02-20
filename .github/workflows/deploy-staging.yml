@@ -1,0 +1,60 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g. sha-abc1234)"
+        required: true
+
+env:
+  AWS_REGION: us-east-1
+  TF_DIR: infra/aws/terraform
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var "aws_region=${AWS_REGION}" \
+            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" \
+            -var "vpc_id=${{ secrets.STAGING_VPC_ID }}" \
+            -var 'public_subnet_ids=${{ secrets.STAGING_PUBLIC_SUBNET_IDS }}' \
+            -var "budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}"
+
+      - name: Output endpoint
+        id: tfout
+        working-directory: ${{ env.TF_DIR }}
+        run: echo "alb_dns=$(terraform output -raw alb_dns_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Health checks
+        run: |
+          curl --fail --retry 10 --retry-delay 10 "http://${{ steps.tfout.outputs.alb_dns }}/health"
+          curl --fail --retry 10 --retry-delay 10 "http://${{ steps.tfout.outputs.alb_dns }}/ready"
