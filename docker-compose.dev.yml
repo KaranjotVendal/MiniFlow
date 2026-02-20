@@ -1,0 +1,10 @@
+services:
+  api:
+    volumes:
+      # Live code updates for local development.
+      - .:/app
+      # Keep the container virtualenv from image build.
+      - /app/.venv
+      # Persist local metrics/debug outputs.
+      - ./metrics:/app/metrics_logs
+    command: uv run uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
