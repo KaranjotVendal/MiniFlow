@@ -21,13 +21,15 @@ from fastapi import (
     UploadFile,
     WebSocket,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
+from src.instrumentation.adapters import RuntimeTelemetryAdapter
 from src.sts_pipeline import process_sample
 from src.config import AppSettings
 from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
+from src.observability.metrics import render_metrics
 from src.prepare_data import AudioSample
 
 logger = initialise_logger(__name__)
@@ -111,8 +113,8 @@ def readiness_check():
 
 @app.get("/metrics")
 def metrics_stub():
-    """Placeholder for Prometheus metrics integration."""
-    return {"latency_avg_ms": "N/A", "sessions_active": 0}
+    payload, content_type = render_metrics()
+    return Response(content=payload, media_type=content_type)
 
 
 class S2SResponse(BaseModel):
@@ -136,6 +138,8 @@ async def speech_to_speech(audio_file: UploadFile):
       3. Return transcript, response text, and base64 WAV
     """
     request_id = str(uuid.uuid4())
+    instrumentation = RuntimeTelemetryAdapter(release_id=SETTINGS.release_id)
+    instrumentation.on_request_start(request_id, metadata={"route": "/s2s"})
     start_time = time.time()
 
     try:
@@ -180,7 +184,7 @@ async def speech_to_speech(audio_file: UploadFile):
                 config=APP_CONFIG,
                 sample=sample,
                 run_id=request_id,
-                collector=None,  # Production mode - no benchmark collection
+                instrumentation=instrumentation,
                 device=device,
                 history=None,
                 stream_audio=False,
@@ -218,20 +222,25 @@ async def speech_to_speech(audio_file: UploadFile):
                 "release_id": response_payload["release_id"],
             }
         )
+        instrumentation.on_request_end(request_id, status="success")
 
         return JSONResponse(response_payload)
 
     except HTTPException:
+        instrumentation.on_request_end(request_id, status="error")
         raise
     except asyncio.TimeoutError:
         logger.exception(f"/s2s request timed out: {request_id}")
+        instrumentation.on_request_end(request_id, status="error", error="request_timeout")
         raise HTTPException(status_code=504, detail="request_timeout")
     except RuntimeError as e:
         # Covers invalid/unsupported audio decode errors surfaced by torchaudio stack.
         logger.exception(f"Invalid audio payload for request {request_id}")
+        instrumentation.on_request_end(request_id, status="error", error="invalid_audio_payload")
         raise HTTPException(status_code=400, detail="invalid_audio_payload") from e
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error in /s2s request {request_id}")
+        instrumentation.on_request_end(request_id, status="error", error="internal_error")
         raise HTTPException(status_code=500, detail="internal_error")
 
 
