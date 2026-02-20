@@ -4,6 +4,18 @@
 
 ---
 
+## CI
+
+GitHub Actions workflow: `.github/workflows/ci.yml`
+
+Quality gate includes:
+1. dependency sync (`uv sync --frozen`)
+2. static compile sanity check
+3. full test suite
+4. Docker build smoke test
+
+---
+
 ## Benchmark Results
 
 ### Executive Summary
