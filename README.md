@@ -103,6 +103,19 @@ Pipeline configurations are defined in `configs/`:
 - `baseline.yml` - Original XTTS pipeline config
 - `2_TTS-to-vibevoice.yml` - VibeVoice TTS config
 
+Runtime settings are environment-driven via `.env` values:
+
+```bash
+cp .env.example .env
+```
+
+Key variables:
+1. `MINIFLOW_CONFIG` - main pipeline YAML path
+2. `MINIFLOW_METRICS_CONFIG` - optional benchmark metrics YAML override
+3. `MINIFLOW_REQUEST_TIMEOUT_SECONDS` - `/s2s` timeout
+4. `MINIFLOW_MAX_AUDIO_UPLOAD_BYTES` - max upload size
+5. `RELEASE_ID` - runtime release label
+
 ## Docker Profiles
 
 Use separate compose modes for prod-like and dev workflows:

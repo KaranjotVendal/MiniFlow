@@ -1,0 +1,4 @@
+profile: dev
+config: configs/baseline.yml
+metrics: configs/metrics.yml
+release_id: dev
