@@ -16,6 +16,20 @@ Quality gate includes:
 
 ---
 
+## CD
+
+GitHub Actions workflow: `.github/workflows/cd.yml`
+
+Current registry target: GHCR (`ghcr.io/<owner>/miniflow`).
+
+See `docs/deploy.md` for pull/run instructions and release metadata details.
+
+Note:
+1. GHCR is the current fast-path registry choice.
+2. ECR publishing is intentionally deferred and tracked as follow-up work.
+
+---
+
 ## Benchmark Results
 
 ### Executive Summary
