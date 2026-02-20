@@ -9,14 +9,12 @@ Entry point for both:
 import base64
 import asyncio
 import io
-import os
 import time
 import uuid
 
 import soundfile as sf
 import torch
 import torchaudio
-import yaml
 from fastapi import (
     FastAPI,
     HTTPException,
@@ -27,6 +25,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.sts_pipeline import process_sample
+from src.config import AppSettings
+from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 from src.prepare_data import AudioSample
 
@@ -38,25 +38,17 @@ app = FastAPI(
     description="Low-latency speech-to-speech agent",
 )
 
-MAX_AUDIO_UPLOAD_BYTES = int(os.getenv("MINIFLOW_MAX_AUDIO_UPLOAD_BYTES", str(10 * 1024 * 1024)))
-REQUEST_TIMEOUT_SECONDS = float(os.getenv("MINIFLOW_REQUEST_TIMEOUT_SECONDS", "120"))
+SETTINGS = AppSettings.from_env()
+MAX_AUDIO_UPLOAD_BYTES = SETTINGS.miniflow_max_audio_upload_bytes
+REQUEST_TIMEOUT_SECONDS = SETTINGS.miniflow_request_timeout_seconds
 
-# Configuration - loaded from YAML or environment
 def load_app_config() -> dict:
-    """Load configuration for the pipeline stages."""
-    config_path = os.getenv("MINIFLOW_CONFIG", "configs/baseline.yml")
-    try:
-        with open(config_path) as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        logger.warning(f"Config file not found: {config_path}, using minimal config")
-        return {
-            "asr": {},
-            "llm": {},
-            "tts": {}
-        }
+    config_path = SETTINGS.resolve_config_path()
+    config = load_yaml_config(config_path)
+    if not isinstance(config, dict):
+        raise ValueError(f"Config must be a dictionary: {config_path}")
+    return config
 
-# Global config loaded at startup
 APP_CONFIG = load_app_config()
 
 
@@ -215,7 +207,7 @@ async def speech_to_speech(audio_file: UploadFile):
             "sample_rate": result.tts_waveform_output_sr,
             "request_id": request_id,
             "latency_ms": round(latency_ms, 2),
-            "release_id": os.getenv("RELEASE_ID", "dev"),
+            "release_id": SETTINGS.release_id,
         }
 
         logger.info(

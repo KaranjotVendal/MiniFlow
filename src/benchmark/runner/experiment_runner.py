@@ -13,6 +13,7 @@ from src.benchmark.core.registry import MetricRegistry
 from src.benchmark.runner.summary_models import MetricStats, SummaryRecord
 from src.benchmark.storage.jsonl_storage import JSONLStorage
 from src.config.load_config import load_yaml_config
+from src.config.settings import AppSettings
 from src.sts_pipeline import process_sample
 from src.utils import clear_gpu_cache
 from src.prepare_data import stream_dataset_samples, AudioSample
@@ -168,7 +169,10 @@ class ExperimentRunner:
 
         self.storage.save_trial(trial_id, trial_metrics)
 
-        logger.debug(f"Trial {trial_id} completed in {trial_metrics["trial_wall_time_seconds"]}" + (" (warmup)" if is_warmup else ""))
+        logger.debug(
+            f"Trial {trial_id} completed in {trial_metrics['trial_wall_time_seconds']}"
+            + (" (warmup)" if is_warmup else "")
+        )
         self._trial_count += 1
 
     def _run_warmup_trials(self, warmup_samples: int, split: str) -> None:
@@ -437,8 +441,13 @@ class ExperimentRunner:
             KeyError: If required config keys are missing.
             ValueError: If metric configuration is invalid.
         """
-        # Load metrics configuration from separate file
-        metrics_config_path = Path(config["metrics"])
+        settings = AppSettings.from_env()
+        config_dir = Path(config.get("__config_dir", Path.cwd()))
+
+        metrics_value = settings.miniflow_metrics_config or config["metrics"]
+        metrics_config_path = Path(metrics_value)
+        if not metrics_config_path.is_absolute():
+            metrics_config_path = (config_dir / metrics_config_path).resolve()
         if not metrics_config_path.exists():
             logger.warning(f"Metrics config doesn't exist: {metrics_config_path}, stopping..")
             raise FileNotFoundError(f"Metrics config not found: {metrics_config_path}")

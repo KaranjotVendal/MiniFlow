@@ -1,0 +1,4 @@
+profile: staging
+config: configs/3_TTS-to-vibevoice.yml
+metrics: configs/metrics.yml
+release_id: staging

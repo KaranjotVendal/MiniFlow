@@ -14,6 +14,7 @@ def _resolve_metrics_config_path(main_config_path: Path, metrics_value: str | Pa
 def inspect_config(config_path: str | Path) -> dict:
     config_path = Path(config_path).resolve()
     config: dict = load_yaml_config(config_path)
+    config["__config_dir"] = str(config_path.parent)
 
     print("\n==================== EXPERIMENT SUMMARY ====================")
     exp = config.get("experiment", {})
@@ -64,6 +65,7 @@ def inspect_config(config_path: str | Path) -> dict:
     metrics_path_value = config.get("metrics")
     if metrics_path_value:
         metrics_path = _resolve_metrics_config_path(config_path, metrics_path_value)
+        config["metrics"] = str(metrics_path)
         print(f"Metrics config path: {metrics_path}")
         if metrics_path.exists():
             metrics_config = load_yaml_config(metrics_path)
