@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
     libportaudio2 \
-    wget
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Use a multi-stage build to copy the uv binary
 # This is more efficient and secure than downloading it during the build
@@ -19,6 +20,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 
 # Working directory
 WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Copy the project definition and the lockfile
 COPY pyproject.toml uv.lock ./
@@ -35,4 +39,4 @@ RUN uv sync --frozen
 # Use `uv run` to start the application. It will automatically find and
 # use the project's virtual environment.
 # FastAPI entrypoint
-CMD ["uv", "run", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
