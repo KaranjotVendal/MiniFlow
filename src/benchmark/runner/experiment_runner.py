@@ -64,7 +64,7 @@ class ExperimentRunner:
         metrics: dict[str, BaseMetric],
         config: dict,
         device: torch.device | str,
-        output_dir: Path = Path("/home/childofprophecy/Desktop/Personal_projects/Machine_Learning/MiniFlow/Benchmark"),
+        output_dir: Path = Path("./Benchmark"),
     ):
         """Initialize the experiment runner.
 
