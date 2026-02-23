@@ -23,3 +23,29 @@ def test_resolve_metrics_path_with_base_dir():
     assert resolved is not None
     assert resolved.is_absolute()
     assert resolved.name == "metrics.yml"
+
+
+def test_profile_config_used_when_env_var_missing(monkeypatch):
+    monkeypatch.delenv("MINIFLOW_CONFIG", raising=False)
+    monkeypatch.delenv("MINIFLOW_METRICS_CONFIG", raising=False)
+    monkeypatch.delenv("RELEASE_ID", raising=False)
+    monkeypatch.setenv("MINIFLOW_ENV", "prod")
+
+    settings = AppSettings.from_env()
+
+    assert settings.miniflow_config == "configs/3_TTS-to-vibevoice.yml"
+    assert settings.miniflow_metrics_config == "configs/metrics.yml"
+    assert settings.release_id == "prod"
+
+
+def test_env_var_overrides_profile(monkeypatch):
+    monkeypatch.setenv("MINIFLOW_ENV", "prod")
+    monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
+    monkeypatch.setenv("MINIFLOW_METRICS_CONFIG", "configs/metrics.yml")
+    monkeypatch.setenv("RELEASE_ID", "override-release")
+
+    settings = AppSettings.from_env()
+
+    assert settings.miniflow_config == "configs/baseline.yml"
+    assert settings.miniflow_metrics_config == "configs/metrics.yml"
+    assert settings.release_id == "override-release"

@@ -39,8 +39,7 @@ app = FastAPI(
 )
 
 SETTINGS = AppSettings.from_env()
-MAX_AUDIO_UPLOAD_BYTES = SETTINGS.miniflow_max_audio_upload_bytes
-REQUEST_TIMEOUT_SECONDS = SETTINGS.miniflow_request_timeout_seconds
+
 
 def load_app_config() -> dict:
     config_path = SETTINGS.resolve_config_path()
@@ -49,7 +48,22 @@ def load_app_config() -> dict:
         raise ValueError(f"Config must be a dictionary: {config_path}")
     return config
 
-APP_CONFIG = load_app_config()
+
+def get_app_config() -> dict | None:
+    return getattr(app.state, "app_config", None)
+
+
+@app.on_event("startup")
+def startup_load_config() -> None:
+    """Load configuration during app startup instead of module import."""
+    try:
+        app.state.app_config = load_app_config()
+        app.state.config_error = None
+        logger.info("Application configuration loaded successfully.")
+    except Exception as exc:
+        app.state.app_config = None
+        app.state.config_error = str(exc)
+        logger.exception("Failed to load application configuration on startup.")
 
 
 def _readiness_missing_fields(config: dict) -> list[str]:
@@ -83,13 +97,18 @@ def health_check():
 @app.get("/ready")
 def readiness_check():
     """Readiness probe - checks if service is ready to handle requests."""
-    if not APP_CONFIG:
+    app_config = get_app_config()
+    if not app_config:
         return JSONResponse(
-            {"status": "not_ready", "reason": "configuration not loaded"},
-            status_code=503
+            {
+                "status": "not_ready",
+                "reason": "configuration not loaded",
+                "error": getattr(app.state, "config_error", None),
+            },
+            status_code=503,
         )
 
-    missing_fields = _readiness_missing_fields(APP_CONFIG)
+    missing_fields = _readiness_missing_fields(app_config)
     if missing_fields:
         return JSONResponse(
             {
@@ -145,10 +164,21 @@ async def speech_to_speech(audio_file: UploadFile):
         contents = await audio_file.read()
         if not contents:
             raise HTTPException(status_code=400, detail="empty_audio_file")
-        if len(contents) > MAX_AUDIO_UPLOAD_BYTES:
+        if len(contents) > SETTINGS.miniflow_max_audio_upload_bytes:
             raise HTTPException(status_code=413, detail="audio_file_too_large")
 
-        missing_fields = _readiness_missing_fields(APP_CONFIG)
+        app_config = get_app_config()
+        if app_config is None:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "service_not_ready",
+                    "reason": "configuration not loaded",
+                    "error": getattr(app.state, "config_error", None),
+                },
+            )
+
+        missing_fields = _readiness_missing_fields(app_config)
         if missing_fields:
             raise HTTPException(
                 status_code=503,
@@ -177,15 +207,16 @@ async def speech_to_speech(audio_file: UploadFile):
         result = await asyncio.wait_for(
             asyncio.to_thread(
                 process_sample,
-                config=APP_CONFIG,
+                config=app_config,
                 sample=sample,
                 run_id=request_id,
-                collector=None,  # Production mode - no benchmark collection
+                # Production mode - no benchmark collection
+                collector=None,
                 device=device,
                 history=None,
                 stream_audio=False,
             ),
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=SETTINGS.miniflow_request_timeout_seconds,
         )
 
         # Encode output waveform to base64 WAV for JSON transport
@@ -211,7 +242,7 @@ async def speech_to_speech(audio_file: UploadFile):
         }
 
         logger.info(
-            f"/s2s request completed",
+            "/s2s request completed",
             extra={
                 "request_id": request_id,
                 "latency_ms": latency_ms,

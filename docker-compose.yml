@@ -3,6 +3,7 @@ services:
     environment:
       # agree to Coqui TTS Terms
       - COQUI_TOS_AGREED=1
+      - MINIFLOW_ENV=prod
     build:
       context: .
       dockerfile: Dockerfile
