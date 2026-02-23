@@ -24,17 +24,27 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Copy the project definition and the lockfile
+# Copy dependency metadata first for better layer caching.
 COPY pyproject.toml uv.lock ./
 
-# Copy the rest of your application code
+# Install only dependencies first. This layer is reused unless lockfile changes.
+RUN uv sync --frozen --no-install-project
+
+# Copy project source after dependencies.
 COPY . /app
 
-# Sync the project. This single command will:
-# 1. Create a virtual environment at .venv
-# 2. Install all dependencies from uv.lock
-# 3. Install the current project, making 'app' importable
+# Install the project itself into the existing virtualenv.
 RUN uv sync --frozen
+
+# Create and use non-root user for runtime security.
+RUN useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+# Container healthcheck using FastAPI liveness endpoint.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://localhost:8000/health || exit 1
 
 # Use `uv run` to start the application. It will automatically find and
 # use the project's virtual environment.
