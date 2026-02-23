@@ -1,10 +1,26 @@
 services:
   api:
+    environment:
+      - LOG_LEVEL=debug
+    stdin_open: true
+    tty: true
     volumes:
       # Live code updates for local development.
       - .:/app
-      # Keep the container virtualenv from image build.
-      - /app/.venv
-      # Persist local metrics/debug outputs.
-      - ./metrics:/app/metrics_logs
+      # Preserve dependency environment from image build.
+      - app_venv:/app/.venv
+      # Persist Hugging Face downloads across container restarts.
+      - hf_cache:/home/appuser/.cache/huggingface
+      # Persist benchmark outputs on host for analysis/comparison.
+      - ./Benchmark:/app/Benchmark
     command: uv run uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+volumes:
+  app_venv:
+  hf_cache:
