@@ -16,7 +16,6 @@ def _env() -> dict:
     data = {
         "miniflow_env": os.getenv("MINIFLOW_ENV", "dev"),
         "miniflow_config": os.getenv("MINIFLOW_CONFIG"),
-        "miniflow_metrics_config": os.getenv("MINIFLOW_METRICS_CONFIG", None),
         "miniflow_request_timeout_seconds": os.getenv(
             "MINIFLOW_REQUEST_TIMEOUT_SECONDS", "120"
         ),
@@ -31,13 +30,13 @@ def _env() -> dict:
 class AppSettings(BaseModel):
     miniflow_env: str = Field(default="dev")
     miniflow_config: str = Field(default=DEFAULT_CONFIG_PATH)
-    miniflow_metrics_config: str | None = Field(default=None)
     miniflow_request_timeout_seconds: float = Field(default=120.0)
     miniflow_max_audio_upload_bytes: int = Field(default=10 * 1024 * 1024)
     release_id: str = Field(default=DEFAULT_RELEASE_ID)
 
     @staticmethod
     def _resolve_path(path_value: str, base_dir: Path | None = None) -> Path:
+        # TODO: add docstrings
         path = Path(path_value)
         if path.is_absolute():
             return path
@@ -77,10 +76,6 @@ class AppSettings(BaseModel):
                 or profile_data.get("config")
                 or DEFAULT_CONFIG_PATH
             ),
-            "miniflow_metrics_config": (
-                raw_data.get("miniflow_metrics_config")
-                or profile_data.get("metrics")
-            ),
             "miniflow_request_timeout_seconds": validated_raw.miniflow_request_timeout_seconds,
             "miniflow_max_audio_upload_bytes": validated_raw.miniflow_max_audio_upload_bytes,
             "release_id": (
@@ -97,8 +92,3 @@ class AppSettings(BaseModel):
 
     def resolve_config_path(self) -> Path:
         return self._resolve_path(self.miniflow_config)
-
-    def resolve_metrics_path(self, base_dir: Path | None = None) -> Path | None:
-        if self.miniflow_metrics_config is None:
-            return None
-        return self._resolve_path(self.miniflow_metrics_config, base_dir=base_dir)

@@ -1,4 +1,3 @@
 profile: dev
-config: configs/baseline.yml
-metrics: configs/metrics.yml
+config: configs/3_TTS-to-vibevoice.yml
 release_id: dev

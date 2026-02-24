@@ -11,6 +11,7 @@ import asyncio
 import io
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 import soundfile as sf
 import torch
@@ -32,12 +33,6 @@ from src.prepare_data import AudioSample
 
 logger = initialise_logger(__name__)
 
-app = FastAPI(
-    title="MiniFlow",
-    version="0.0.1",
-    description="Low-latency speech-to-speech agent",
-)
-
 SETTINGS = AppSettings.from_env()
 
 
@@ -50,12 +45,13 @@ def load_app_config() -> dict:
 
 
 def get_app_config() -> dict | None:
+    """Return runtime application configuration loaded at startup."""
     return getattr(app.state, "app_config", None)
 
 
-@app.on_event("startup")
-def startup_load_config() -> None:
-    """Load configuration during app startup instead of module import."""
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Load configuration during application startup."""
     try:
         app.state.app_config = load_app_config()
         app.state.config_error = None
@@ -64,6 +60,22 @@ def startup_load_config() -> None:
         app.state.app_config = None
         app.state.config_error = str(exc)
         logger.exception("Failed to load application configuration on startup.")
+    yield
+
+
+app = FastAPI(
+    title="MiniFlow",
+    version="0.0.1",
+    description="Low-latency speech-to-speech agent",
+    lifespan=lifespan,
+)
+
+
+def _encode_wav_base64(waveform, sample_rate: int) -> str:
+    """Encode waveform and sample rate into base64 WAV payload."""
+    buffer = io.BytesIO()
+    sf.write(buffer, waveform, sample_rate, format="WAV")
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def _readiness_missing_fields(config: dict) -> list[str]:
@@ -155,7 +167,7 @@ async def speech_to_speech(audio_file: UploadFile):
       3. Return transcript, response text, and base64 WAV
     """
     request_id = str(uuid.uuid4())
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     try:
         if audio_file.content_type and not audio_file.content_type.startswith("audio/"):
@@ -219,17 +231,9 @@ async def speech_to_speech(audio_file: UploadFile):
             timeout=SETTINGS.miniflow_request_timeout_seconds,
         )
 
-        # Encode output waveform to base64 WAV for JSON transport
-        buffer = io.BytesIO()
-        sf.write(
-            buffer,
-            result.tts_waveform,
-            result.tts_waveform_output_sr,
-            format="WAV",
-        )
-        wav_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        wav_base64 = _encode_wav_base64(result.tts_waveform, result.tts_waveform_output_sr)
 
-        latency_ms = (time.time() - start_time) * 1000
+        latency_ms = (time.perf_counter() - start_time) * 1000
 
         response_payload = {
             "transcript": result.asr_transcript,
