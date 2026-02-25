@@ -1,10 +1,13 @@
 import io
+import os
 import time
 from types import SimpleNamespace
 
 import numpy as np
 import soundfile as sf
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("MINIFLOW_CONFIG", "configs/baseline.yml")
 
 import src.app as app_mod
 
@@ -27,7 +30,7 @@ def _ready_config() -> dict:
 
 def test_s2s_success_contract(monkeypatch):
     client = TestClient(app_mod.app)
-    monkeypatch.setattr(app_mod, "APP_CONFIG", _ready_config())
+    app_mod.app.state.app_config = _ready_config()
 
     def fake_process_sample(**kwargs):
         return SimpleNamespace(
@@ -50,7 +53,7 @@ def test_s2s_success_contract(monkeypatch):
 
 def test_s2s_rejects_non_audio_content_type(monkeypatch):
     client = TestClient(app_mod.app)
-    monkeypatch.setattr(app_mod, "APP_CONFIG", _ready_config())
+    app_mod.app.state.app_config = _ready_config()
     response = client.post(
         "/s2s",
         files={"audio_file": ("sample.txt", b"hello", "text/plain")},
@@ -61,7 +64,7 @@ def test_s2s_rejects_non_audio_content_type(monkeypatch):
 
 def test_s2s_rejects_empty_audio(monkeypatch):
     client = TestClient(app_mod.app)
-    monkeypatch.setattr(app_mod, "APP_CONFIG", _ready_config())
+    app_mod.app.state.app_config = _ready_config()
     response = client.post(
         "/s2s",
         files={"audio_file": ("empty.wav", b"", "audio/wav")},
@@ -72,7 +75,7 @@ def test_s2s_rejects_empty_audio(monkeypatch):
 
 def test_s2s_rejects_when_service_not_ready(monkeypatch):
     client = TestClient(app_mod.app)
-    monkeypatch.setattr(app_mod, "APP_CONFIG", {"asr": {}, "llm": {}, "tts": {}})
+    app_mod.app.state.app_config = {"asr": {}, "llm": {}, "tts": {}}
     response = client.post(
         "/s2s",
         files={"audio_file": ("sample.wav", _wav_bytes(), "audio/wav")},
@@ -85,8 +88,8 @@ def test_s2s_rejects_when_service_not_ready(monkeypatch):
 
 def test_s2s_timeout_path(monkeypatch):
     client = TestClient(app_mod.app)
-    monkeypatch.setattr(app_mod, "APP_CONFIG", _ready_config())
-    monkeypatch.setattr(app_mod, "REQUEST_TIMEOUT_SECONDS", 0.01)
+    app_mod.app.state.app_config = _ready_config()
+    monkeypatch.setattr(app_mod.SETTINGS, "miniflow_request_timeout_seconds", 0.01)
 
     def slow_process_sample(**kwargs):
         time.sleep(0.1)

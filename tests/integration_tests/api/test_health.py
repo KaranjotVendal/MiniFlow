@@ -1,4 +1,8 @@
+import os
+
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("MINIFLOW_CONFIG", "configs/baseline.yml")
 
 import src.app as app_mod
 

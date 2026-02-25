@@ -110,11 +110,10 @@ cp .env.example .env
 ```
 
 Key variables:
-1. `MINIFLOW_ENV` - runtime label (`dev` by default)
-2. `MINIFLOW_CONFIG` - main pipeline YAML path
-3. `MINIFLOW_REQUEST_TIMEOUT_SECONDS` - `/s2s` timeout
-4. `MINIFLOW_MAX_AUDIO_UPLOAD_BYTES` - max upload size
-5. `RELEASE_ID` - runtime release label
+1. `MINIFLOW_CONFIG` - required main pipeline YAML path
+2. `MINIFLOW_REQUEST_TIMEOUT_SECONDS` - `/s2s` timeout
+3. `MINIFLOW_MAX_AUDIO_UPLOAD_BYTES` - max upload size
+4. `RELEASE_ID` - runtime release label
 
 Benchmark configuration is CLI-driven via `--config`; metrics config is resolved
 from the benchmark YAML `metrics` field.
@@ -123,8 +122,7 @@ Settings precedence:
 1. Environment variables (highest)
 2. Built-in defaults (lowest)
 
-Note: Docker compose sets `MINIFLOW_ENV` per runtime (`dev` in
-`docker-compose.dev.yml`, `prod` in `docker-compose.yml`).
+Note: Docker compose sets `MINIFLOW_CONFIG` explicitly per runtime.
 
 ## Docker Profiles
 

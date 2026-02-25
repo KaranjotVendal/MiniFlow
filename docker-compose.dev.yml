@@ -2,7 +2,7 @@ services:
   api:
     environment:
       - LOG_LEVEL=debug
-      - MINIFLOW_ENV=dev
+      - MINIFLOW_CONFIG=configs/baseline.yml
     stdin_open: true
     tty: true
     volumes:

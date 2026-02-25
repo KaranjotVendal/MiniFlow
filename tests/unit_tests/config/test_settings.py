@@ -1,9 +1,22 @@
+import pytest
+
 from src.config.settings import AppSettings
 
 
-def test_settings_defaults():
+def test_settings_requires_miniflow_config(monkeypatch):
+    monkeypatch.delenv("MINIFLOW_CONFIG", raising=False)
+    monkeypatch.delenv("MINIFLOW_REQUEST_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("MINIFLOW_MAX_AUDIO_UPLOAD_BYTES", raising=False)
+    monkeypatch.delenv("RELEASE_ID", raising=False)
+
+    with pytest.raises(ValueError):
+        AppSettings.from_env()
+
+
+def test_settings_defaults_with_required_config(monkeypatch):
+    monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
     settings = AppSettings.from_env()
-    assert settings.miniflow_env == "dev"
+    assert settings.miniflow_config == "configs/baseline.yml"
     assert settings.miniflow_request_timeout_seconds > 0
     assert settings.miniflow_max_audio_upload_bytes > 0
 
@@ -15,19 +28,17 @@ def test_resolve_config_path_relative():
     assert resolved.name == "baseline.yml"
 
 
-def test_defaults_used_when_env_var_missing(monkeypatch):
-    monkeypatch.delenv("MINIFLOW_CONFIG", raising=False)
+def test_release_id_default_used_when_env_var_missing(monkeypatch):
+    monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
     monkeypatch.delenv("RELEASE_ID", raising=False)
-    monkeypatch.setenv("MINIFLOW_ENV", "prod")
 
     settings = AppSettings.from_env()
 
-    assert settings.miniflow_config == "configs/3_TTS-to-vibevoice.yml"
+    assert settings.miniflow_config == "configs/baseline.yml"
     assert settings.release_id == "dev"
 
 
 def test_env_var_overrides_defaults(monkeypatch):
-    monkeypatch.setenv("MINIFLOW_ENV", "prod")
     monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
     monkeypatch.setenv("RELEASE_ID", "override-release")
 

@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
-DEFAULT_CONFIG_PATH = "configs/3_TTS-to-vibevoice.yml"
 DEFAULT_RELEASE_ID = "dev"
 
 
@@ -10,7 +9,6 @@ def _env() -> dict:
     import os
 
     data = {
-        "miniflow_env": os.getenv("MINIFLOW_ENV"),
         "miniflow_config": os.getenv("MINIFLOW_CONFIG"),
         "miniflow_request_timeout_seconds": os.getenv("MINIFLOW_REQUEST_TIMEOUT_SECONDS"),
         "miniflow_max_audio_upload_bytes": os.getenv("MINIFLOW_MAX_AUDIO_UPLOAD_BYTES"),
@@ -20,8 +18,7 @@ def _env() -> dict:
 
 
 class AppSettings(BaseModel):
-    miniflow_env: str = Field(default="dev")
-    miniflow_config: str = Field(default=DEFAULT_CONFIG_PATH)
+    miniflow_config: str
     miniflow_request_timeout_seconds: float = Field(default=120.0)
     miniflow_max_audio_upload_bytes: int = Field(default=10 * 1024 * 1024)
     release_id: str = Field(default=DEFAULT_RELEASE_ID)
