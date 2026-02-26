@@ -58,4 +58,4 @@ pythonpath = ["."]
 markers = [
     "integration: marks tests as integration tests (run with: pytest -m integration)",
 ]
-addopts = "-m 'not integration'"
+addopts = "-m 'not integration' --ignore=tests/integration_tests"
