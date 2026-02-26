@@ -2,6 +2,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
+from src.config.path_utils import resolve_path
 
 def _env() -> dict:
     import os
@@ -21,23 +22,6 @@ class AppSettings(BaseModel):
     miniflow_max_audio_upload_bytes: int = Field(default=10 * 1024 * 1024)
     release_id: str
 
-    @staticmethod
-    def _resolve_path(path_value: str, base_dir: Path | None = None) -> Path:
-        """Resolve a path string into an absolute filesystem path.
-
-        If `path_value` is relative, it is resolved against `base_dir` when provided,
-        otherwise against the current working directory.
-
-        Example:
-            path_value="configs/baseline.yml", cwd="/repo"
-            -> "/repo/configs/baseline.yml"
-        """
-        path = Path(path_value)
-        if path.is_absolute():
-            return path
-        root = Path.cwd() if base_dir is None else base_dir
-        return (root / path).resolve()
-
     @classmethod
     def from_env(cls) -> "AppSettings":
         raw_data = _env()
@@ -55,7 +39,7 @@ class AppSettings(BaseModel):
             cwd="/repo"
             -> "/repo/configs/3_TTS-to-vibevoice.yml"
         """
-        resolved_path = self._resolve_path(self.miniflow_config)
+        resolved_path = resolve_path(self.miniflow_config)
         if not resolved_path.exists():
             raise FileNotFoundError(f"Config file not found: {resolved_path}")
         return resolved_path

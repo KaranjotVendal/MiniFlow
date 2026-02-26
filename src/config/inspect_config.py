@@ -2,14 +2,7 @@ from pprint import pprint
 from pathlib import Path
 
 from src.config.load_config import load_yaml_config
-
-
-def _resolve_metrics_config_path(main_config_path: Path, metrics_value: str | Path) -> Path:
-    """Resolve metrics config path relative to the main config file location."""
-    path = Path(metrics_value)
-    if path.is_absolute():
-        return path
-    return (main_config_path.parent / path).resolve()
+from src.config.path_utils import resolve_path_relative_to_file
 
 
 def inspect_config(config_path: str | Path) -> dict:
@@ -66,7 +59,7 @@ def inspect_config(config_path: str | Path) -> dict:
     # Metrics config (external file)
     metrics_path_value = config.get("metrics")
     if metrics_path_value:
-        metrics_path = _resolve_metrics_config_path(config_path, metrics_path_value)
+        metrics_path = resolve_path_relative_to_file(metrics_path_value, config_path)
         config["metrics"] = metrics_path.as_posix()
         print(f"Metrics config path: {metrics_path}")
         if metrics_path.exists():
