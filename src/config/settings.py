@@ -55,4 +55,7 @@ class AppSettings(BaseModel):
             cwd="/repo"
             -> "/repo/configs/3_TTS-to-vibevoice.yml"
         """
-        return self._resolve_path(self.miniflow_config)
+        resolved_path = self._resolve_path(self.miniflow_config)
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"Config file not found: {resolved_path}")
+        return resolved_path

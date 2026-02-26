@@ -440,13 +440,12 @@ class ExperimentRunner:
             KeyError: If required config keys are missing.
             ValueError: If metric configuration is invalid.
         """
-        metrics_value = config["metrics"]
-        metrics_config_path = Path(metrics_value)
-        # Primary path normalization happens in inspect_config(). This fallback keeps
-        # from_config robust when called directly with an unresolved relative path.
+        metrics_config_path = Path(config["metrics"])
         if not metrics_config_path.is_absolute():
-            config_dir = Path(config.get("__config_dir", Path.cwd()))
-            metrics_config_path = (config_dir / metrics_config_path).resolve()
+            raise ValueError(
+                "Expected normalized absolute metrics path in config['metrics']. "
+                "Use inspect_config() before ExperimentRunner.from_config()."
+            )
         if not metrics_config_path.exists():
             logger.warning(f"Metrics config doesn't exist: {metrics_config_path}, stopping..")
             raise FileNotFoundError(f"Metrics config not found: {metrics_config_path}")

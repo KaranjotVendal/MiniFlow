@@ -14,7 +14,8 @@ def _resolve_metrics_config_path(main_config_path: Path, metrics_value: str | Pa
 
 def inspect_config(config_path: str | Path) -> dict:
     config_path = Path(config_path).resolve()
-    config: dict = load_yaml_config(config_path)
+    loaded_config: dict = load_yaml_config(config_path)
+    config: dict = {**loaded_config}
     config["__config_dir"] = str(config_path.parent)
 
     print("\n==================== EXPERIMENT SUMMARY ====================")
