@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, ValidationError
 from src.config.path_utils import resolve_path
 
 def _env() -> dict:
+    """Load raw MiniFlow settings values from environment variables."""
     import os
 
     data = {

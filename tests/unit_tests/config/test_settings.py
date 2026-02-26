@@ -41,6 +41,16 @@ def test_resolve_config_path_relative():
     assert resolved.name == "baseline.yml"
 
 
+def test_resolve_config_path_missing_file_raises():
+    settings = AppSettings(
+        miniflow_config="configs/does_not_exist.yml",
+        release_id="test-release",
+    )
+
+    with pytest.raises(FileNotFoundError):
+        settings.resolve_config_path()
+
+
 def test_release_id_read_from_env(monkeypatch):
     monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
     monkeypatch.setenv("RELEASE_ID", "release-test")
