@@ -2,8 +2,6 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
-DEFAULT_RELEASE_ID = "dev"
-
 
 def _env() -> dict:
     import os
@@ -21,7 +19,7 @@ class AppSettings(BaseModel):
     miniflow_config: str
     miniflow_request_timeout_seconds: float = Field(default=120.0)
     miniflow_max_audio_upload_bytes: int = Field(default=10 * 1024 * 1024)
-    release_id: str = Field(default=DEFAULT_RELEASE_ID)
+    release_id: str
 
     @staticmethod
     def _resolve_path(path_value: str, base_dir: Path | None = None) -> Path:

@@ -3,6 +3,7 @@ services:
     environment:
       - LOG_LEVEL=debug
       - MINIFLOW_CONFIG=configs/baseline.yml
+      - RELEASE_ID=dev-pseudo
     stdin_open: true
     tty: true
     volumes:

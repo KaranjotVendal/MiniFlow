@@ -8,6 +8,7 @@ import soundfile as sf
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("MINIFLOW_CONFIG", "configs/baseline.yml")
+os.environ.setdefault("RELEASE_ID", "test-release")
 
 import src.app as app_mod
 

@@ -4,6 +4,8 @@ services:
       # agree to Coqui TTS Terms
       - COQUI_TOS_AGREED=1
       - MINIFLOW_CONFIG=configs/3_TTS-to-vibevoice.yml
+      # TODO: Replace with CI/CD-generated immutable release identifier (git SHA/image tag).
+      - RELEASE_ID=prod-pseudo
     build:
       context: .
       dockerfile: Dockerfile
