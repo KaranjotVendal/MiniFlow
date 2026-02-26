@@ -23,7 +23,15 @@ class AppSettings(BaseModel):
 
     @staticmethod
     def _resolve_path(path_value: str, base_dir: Path | None = None) -> Path:
-        # TODO: add docstrings
+        """Resolve a path string into an absolute filesystem path.
+
+        If `path_value` is relative, it is resolved against `base_dir` when provided,
+        otherwise against the current working directory.
+
+        Example:
+            path_value="configs/baseline.yml", cwd="/repo"
+            -> "/repo/configs/baseline.yml"
+        """
         path = Path(path_value)
         if path.is_absolute():
             return path
@@ -40,4 +48,11 @@ class AppSettings(BaseModel):
             raise ValueError(f"Invalid application settings: {exc}") from exc
 
     def resolve_config_path(self) -> Path:
+        """Return absolute path for `miniflow_config`.
+
+        Example:
+            MINIFLOW_CONFIG="configs/3_TTS-to-vibevoice.yml"
+            cwd="/repo"
+            -> "/repo/configs/3_TTS-to-vibevoice.yml"
+        """
         return self._resolve_path(self.miniflow_config)
