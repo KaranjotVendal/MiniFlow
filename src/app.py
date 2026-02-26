@@ -13,6 +13,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
+import numpy as np
 import soundfile as sf
 import torch
 import torchaudio
@@ -73,8 +74,13 @@ app = FastAPI(
 
 def _encode_wav_base64(waveform, sample_rate: int) -> str:
     """Encode waveform and sample rate into base64 WAV payload."""
+    if isinstance(waveform, torch.Tensor):
+        audio = waveform.detach().to(dtype=torch.float32).cpu().numpy()
+    else:
+        audio = np.asarray(waveform, dtype=np.float32)
+
     buffer = io.BytesIO()
-    sf.write(buffer, waveform, sample_rate, format="WAV")
+    sf.write(buffer, audio, sample_rate, format="WAV")
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
@@ -200,7 +206,12 @@ async def speech_to_speech(audio_file: UploadFile):
                 },
             )
 
-        waveform, sampling_rate = torchaudio.load(io.BytesIO(contents))
+        try:
+            waveform, sampling_rate = torchaudio.load(io.BytesIO(contents))
+        except RuntimeError as exc:
+            # Map only decode/format errors from torchaudio to client-side 400.
+            logger.exception(f"Invalid audio payload for request {request_id}")
+            raise HTTPException(status_code=400, detail="invalid_audio_payload") from exc
 
         sample = AudioSample(
             audio_tensor=waveform,
@@ -261,10 +272,6 @@ async def speech_to_speech(audio_file: UploadFile):
     except asyncio.TimeoutError:
         logger.exception(f"/s2s request timed out: {request_id}")
         raise HTTPException(status_code=504, detail="request_timeout")
-    except RuntimeError as e:
-        # Covers invalid/unsupported audio decode errors surfaced by torchaudio stack.
-        logger.exception(f"Invalid audio payload for request {request_id}")
-        raise HTTPException(status_code=400, detail="invalid_audio_payload") from e
     except Exception as e:
         logger.exception(f"Error in /s2s request {request_id}")
         raise HTTPException(status_code=500, detail="internal_error")
