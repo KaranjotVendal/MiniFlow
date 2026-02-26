@@ -20,7 +20,7 @@ def test_settings_requires_release_id(monkeypatch):
     with pytest.raises(ValueError):
         AppSettings.from_env()
 
-
+# TODO: this test can have another case we can set timeout and max audio upload
 def test_settings_defaults_with_required_config(monkeypatch):
     monkeypatch.setenv("MINIFLOW_CONFIG", "configs/baseline.yml")
     monkeypatch.setenv("RELEASE_ID", "dev-pseudo")
