@@ -154,11 +154,15 @@ def readiness_check():
         )
 
     cuda_available = torch.cuda.is_available()
+    # Use env var if set, otherwise auto-detect
+    device = os.getenv("MINIFLOW_DEVICE", "cuda" if cuda_available else "cpu")
+    if device not in ("cuda", "cpu"):
+        device = "cuda" if cuda_available else "cpu"
 
     return {
         "status": "ready",
         "cuda_available": cuda_available,
-        "device": "cuda" if cuda_available else "cpu",
+        "device": device,
     }
 
 
