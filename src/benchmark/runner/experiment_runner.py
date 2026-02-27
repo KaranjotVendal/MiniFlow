@@ -63,7 +63,7 @@ class ExperimentRunner:
         metrics: dict[str, BaseMetric],
         config: dict,
         device: torch.device | str,
-        output_dir: Path = Path("/home/childofprophecy/Desktop/Personal_projects/Machine_Learning/MiniFlow/Benchmark"),
+        output_dir: Path = Path("./Benchmark"),
     ):
         """Initialize the experiment runner.
 
@@ -168,7 +168,10 @@ class ExperimentRunner:
 
         self.storage.save_trial(trial_id, trial_metrics)
 
-        logger.debug(f"Trial {trial_id} completed in {trial_metrics["trial_wall_time_seconds"]}" + (" (warmup)" if is_warmup else ""))
+        logger.debug(
+            f"Trial {trial_id} completed in {trial_metrics['trial_wall_time_seconds']}"
+            + (" (warmup)" if is_warmup else "")
+        )
         self._trial_count += 1
 
     def _run_warmup_trials(self, warmup_samples: int, split: str) -> None:
@@ -437,8 +440,12 @@ class ExperimentRunner:
             KeyError: If required config keys are missing.
             ValueError: If metric configuration is invalid.
         """
-        # Load metrics configuration from separate file
         metrics_config_path = Path(config["metrics"])
+        if not metrics_config_path.is_absolute():
+            raise ValueError(
+                "Expected normalized absolute metrics path in config['metrics']. "
+                "Use inspect_config() before ExperimentRunner.from_config()."
+            )
         if not metrics_config_path.exists():
             logger.warning(f"Metrics config doesn't exist: {metrics_config_path}, stopping..")
             raise FileNotFoundError(f"Metrics config not found: {metrics_config_path}")

@@ -1,4 +1,10 @@
+import os
+import pytest
+
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("MINIFLOW_CONFIG", "configs/baseline.yml")
+os.environ.setdefault("RELEASE_ID", "test-release")
 
 import src.app as app_mod
 
@@ -10,19 +16,15 @@ def test_health_returns_200():
     assert response.json() == {"status": "healthy"}
 
 
-def test_ready_distinct_from_health_when_config_missing(monkeypatch):
-    client = TestClient(app_mod.app)
-    monkeypatch.setattr(
-        app_mod,
-        "APP_CONFIG",
-        {
+def test_ready_distinct_from_health_when_config_missing():
+    with TestClient(app_mod.app) as client:
+        app_mod.app.state.app_config = {
             "asr": {},
             "llm": {},
             "tts": {},
-        },
-    )
-    health = client.get("/health")
-    ready = client.get("/ready")
+        }
+        health = client.get("/health")
+        ready = client.get("/ready")
 
     assert health.status_code == 200
     assert ready.status_code == 503

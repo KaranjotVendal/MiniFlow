@@ -2,18 +2,14 @@ from pprint import pprint
 from pathlib import Path
 
 from src.config.load_config import load_yaml_config
-
-
-def _resolve_metrics_config_path(main_config_path: Path, metrics_value: str | Path) -> Path:
-    path = Path(metrics_value)
-    if path.is_absolute():
-        return path
-    return (main_config_path.parent / path).resolve()
+from src.config.path_utils import resolve_path_relative_to_file
 
 
 def inspect_config(config_path: str | Path) -> dict:
     config_path = Path(config_path).resolve()
-    config: dict = load_yaml_config(config_path)
+    loaded_config: dict = load_yaml_config(config_path)
+    config: dict = {**loaded_config}
+    config["__config_dir"] = str(config_path.parent)
 
     print("\n==================== EXPERIMENT SUMMARY ====================")
     exp = config.get("experiment", {})
@@ -63,7 +59,8 @@ def inspect_config(config_path: str | Path) -> dict:
     # Metrics config (external file)
     metrics_path_value = config.get("metrics")
     if metrics_path_value:
-        metrics_path = _resolve_metrics_config_path(config_path, metrics_path_value)
+        metrics_path = resolve_path_relative_to_file(metrics_path_value, config_path)
+        config["metrics"] = metrics_path.as_posix()
         print(f"Metrics config path: {metrics_path}")
         if metrics_path.exists():
             metrics_config = load_yaml_config(metrics_path)

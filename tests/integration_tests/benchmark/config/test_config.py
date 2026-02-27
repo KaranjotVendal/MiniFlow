@@ -6,7 +6,7 @@ from src.benchmark.config.validation import (
     MetricsConfig,
     BenchmarkConfig,
 )
-
+# TODO: this test can get resolve by resolving benchmark/config/* flles.
 class TestConfigIntegration:
     """Integration tests for config loading and validation."""
 

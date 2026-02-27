@@ -2,6 +2,9 @@ services:
   api:
     environment:
       - LOG_LEVEL=debug
+      - MINIFLOW_CONFIG=configs/baseline.yml
+      - RELEASE_ID=dev-pseudo
+      - HF_HOME=/app/.cache/huggingface
     stdin_open: true
     tty: true
     volumes:
@@ -10,7 +13,7 @@ services:
       # Preserve dependency environment from image build.
       - app_venv:/app/.venv
       # Persist Hugging Face downloads across container restarts.
-      - hf_cache:/home/appuser/.cache/huggingface
+      - hf_cache:/app/.cache/huggingface
       # Persist benchmark outputs on host for analysis/comparison.
       - ./Benchmark:/app/Benchmark
     command: uv run uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload

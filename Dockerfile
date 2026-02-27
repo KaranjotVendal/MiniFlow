@@ -23,9 +23,11 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 # Copy dependency metadata first for better layer caching.
 COPY pyproject.toml uv.lock ./
+COPY vibevoice /app/vibevoice
 
 # Install only dependencies first. This layer is reused unless lockfile changes.
 RUN uv sync --frozen --no-install-project
