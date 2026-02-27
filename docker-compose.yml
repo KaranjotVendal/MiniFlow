@@ -6,6 +6,8 @@ services:
       - MINIFLOW_CONFIG=configs/3_TTS-to-vibevoice.yml
       # Generous timeout for cold-start end-to-end runs on constrained GPUs.
       - MINIFLOW_REQUEST_TIMEOUT_SECONDS=900
+      # Device selection: "cuda" or "cpu". Set to "cpu" if CUDA has issues.
+      - MINIFLOW_DEVICE=${MINIFLOW_DEVICE:-cuda}
       # TODO: Replace with CI/CD-generated immutable release identifier (git SHA/image tag).
       - RELEASE_ID=prod-pseudo
     build:
