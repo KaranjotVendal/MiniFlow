@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 def load_yaml_config(path: str | Path) -> dict:
+    # TODO: make a dataclass for config.
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
