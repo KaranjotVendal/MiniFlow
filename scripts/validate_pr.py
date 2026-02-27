@@ -239,7 +239,7 @@ def main() -> int:
     parser.add_argument(
         "--request-timeout-seconds",
         type=int,
-        default=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "600")),
+        default=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "900")),
         help="Timeout for /s2s end-to-end request.",
     )
     parser.add_argument(
