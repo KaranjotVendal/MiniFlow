@@ -9,6 +9,7 @@ Entry point for both:
 import base64
 import asyncio
 import io
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -249,8 +250,10 @@ async def speech_to_speech(audio_file: UploadFile):
             sampling_rate=sampling_rate,
         )
 
-        # Get device
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Get device - use env var if set, otherwise auto-detect
+        device = os.getenv("MINIFLOW_DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
+        if device not in ("cuda", "cpu"):
+            device = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Process sample (collector=None for production mode - lightweight telemetry)
         result = await asyncio.wait_for(
