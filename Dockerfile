@@ -1,4 +1,4 @@
-# Base image: CUDA 13.0 + cuDNN
+# Base image: CUDA 13.0 + cuDNN (matches PyTorch cu130)
 FROM nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04
 
 # Install system dependencies (curl is needed for the multi-stage copy)

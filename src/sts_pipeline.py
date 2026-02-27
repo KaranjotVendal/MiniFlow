@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from numpy.typing import NDArray
 import torch
+from numpy.typing import NDArray
 
 from src.stt.stt_pipeline import run_asr
 from src.tts.tts_pipelines import run_tts
@@ -15,6 +15,24 @@ if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
 
 logger = initialise_logger(__name__)
+
+
+def get_device(preferred: str = "cuda") -> torch.device:
+    """Get torch device with automatic CPU fallback on CUDA errors."""
+    if preferred != "cuda":
+        return torch.device(preferred)
+
+    if not torch.cuda.is_available():
+        logger.warning("CUDA not available, falling back to CPU")
+        return torch.device("cpu")
+
+    try:
+        # Test CUDA with a simple operation
+        _ = torch.randn(1, device="cuda") @ torch.randn(1, device="cuda").T
+        return torch.device("cuda")
+    except Exception as e:
+        logger.warning(f"CUDA initialization failed ({e}), falling back to CPU")
+        return torch.device("cpu")
 
 
 class _NoOpMetric:
@@ -105,6 +123,11 @@ def process_sample(
     if collector is None:
         collector = NoOpCollector()
 
+    # Resolve device with automatic CPU fallback on CUDA errors
+    actual_device = get_device(device)
+    if actual_device != device:
+        logger.info(f"Using {actual_device} instead of requested {device}")
+
     # ASR
     transcription = run_asr(
         config=config["asr"],
@@ -112,7 +135,7 @@ def process_sample(
         sampling_rate=sample.sampling_rate,
         groundtruth=sample.transcript,
         collector=collector,
-        device=device,
+        device=actual_device,
     )
 
     # LLM
@@ -121,14 +144,14 @@ def process_sample(
         transcription=transcription,
         history=history,
         collector=collector,
-        device=device
+        device=actual_device
     )
 
     # TTS (can optionally use input audio as reference for voice)
     tts_waveform, output_sample_rate = run_tts(
         config=config["tts"],
         llm_response=response,
-        device=device,
+        device=actual_device,
         collector=collector,
         # , audio_tensor, sampling_rate
     )
