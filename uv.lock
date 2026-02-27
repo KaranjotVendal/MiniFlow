@@ -1859,7 +1859,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = ">=1.11.0" },
+    { name = "accelerate", specifier = ">=1.12.0,<1.13.0" },
     { name = "bitsandbytes", specifier = ">=0.48.2" },
     { name = "coqui-tts", specifier = ">=0.27.0" },
     { name = "datasets", specifier = ">=4.3.0" },
@@ -1881,7 +1881,7 @@ requires-dist = [
     { name = "torchcodec", specifier = ">=0.8.1" },
     { name = "torchvision", marker = "sys_platform != 'linux'", specifier = ">=0.24.0" },
     { name = "torchvision", marker = "sys_platform == 'linux'", specifier = ">=0.24.0", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "transformers", specifier = "==4.57.3" },
+    { name = "transformers", specifier = ">=4.57.0,<4.58.0" },
     { name = "utmosv2", git = "https://github.com/sarulab-speech/UTMOSv2.git" },
     { name = "vibevoice", editable = "vibevoice" },
 ]
@@ -3743,7 +3743,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.57.3"
+version = "4.57.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -3757,9 +3757,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/70/d42a739e8dfde3d92bb2fff5819cbf331fe9657323221e79415cd5eb65ee/transformers-4.57.3.tar.gz", hash = "sha256:df4945029aaddd7c09eec5cad851f30662f8bd1746721b34cc031d70c65afebc", size = 10139680, upload-time = "2025-11-25T15:51:30.139Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c4/35/67252acc1b929dc88b6602e8c4a982e64f31e733b804c14bc24b47da35e6/transformers-4.57.6.tar.gz", hash = "sha256:55e44126ece9dc0a291521b7e5492b572e6ef2766338a610b9ab5afbb70689d3", size = 10134912, upload-time = "2026-01-16T10:38:39.284Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/6b/2f416568b3c4c91c96e5a365d164f8a4a4a88030aa8ab4644181fdadce97/transformers-4.57.3-py3-none-any.whl", hash = "sha256:c77d353a4851b1880191603d36acb313411d3577f6e2897814f333841f7003f4", size = 11993463, upload-time = "2025-11-25T15:51:26.493Z" },
+    { url = "https://files.pythonhosted.org/packages/03/b8/e484ef633af3887baeeb4b6ad12743363af7cce68ae51e938e00aaa0529d/transformers-4.57.6-py3-none-any.whl", hash = "sha256:4c9e9de11333ddfe5114bc872c9f370509198acf0b87a832a0ab9458e2bd0550", size = 11993498, upload-time = "2026-01-16T10:38:31.289Z" },
 ]
 
 [[package]]
@@ -3931,7 +3931,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "absl-py" },
-    { name = "accelerate", specifier = ">=1.6.0" },
+    { name = "accelerate", specifier = ">=1.12.0,<1.13.0" },
     { name = "aiortc" },
     { name = "av" },
     { name = "diffusers" },
@@ -3946,7 +3946,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform != 'linux'" },
     { name = "torch", marker = "sys_platform == 'linux'", index = "https://download.pytorch.org/whl/cu130" },
     { name = "tqdm" },
-    { name = "transformers", specifier = ">=4.51.3" },
+    { name = "transformers", specifier = ">=4.57.0,<4.58.0" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 
