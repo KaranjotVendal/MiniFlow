@@ -11,7 +11,9 @@ import asyncio
 import io
 import time
 import uuid
+from contextlib import asynccontextmanager
 
+import numpy as np
 import soundfile as sf
 import torch
 import torchaudio
@@ -32,24 +34,58 @@ from src.prepare_data import AudioSample
 
 logger = initialise_logger(__name__)
 
-app = FastAPI(
-    title="MiniFlow",
-    version="0.0.1",
-    description="Low-latency speech-to-speech agent",
-)
-
-SETTINGS = AppSettings.from_env()
-MAX_AUDIO_UPLOAD_BYTES = SETTINGS.miniflow_max_audio_upload_bytes
-REQUEST_TIMEOUT_SECONDS = SETTINGS.miniflow_request_timeout_seconds
-
-def load_app_config() -> dict:
-    config_path = SETTINGS.resolve_config_path()
+def load_app_config(settings: AppSettings) -> dict:
+    config_path = settings.resolve_config_path()
     config = load_yaml_config(config_path)
     if not isinstance(config, dict):
         raise ValueError(f"Config must be a dictionary: {config_path}")
     return config
 
-APP_CONFIG = load_app_config()
+
+def get_settings() -> AppSettings | None:
+    """Return runtime application settings loaded at startup."""
+    return getattr(app.state, "settings", None)
+
+
+def get_app_config() -> dict | None:
+    """Return runtime application configuration loaded at startup."""
+    return getattr(app.state, "app_config", None)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Load configuration during application startup."""
+    try:
+        app.state.settings = AppSettings.from_env()
+        app.state.app_config = load_app_config(app.state.settings)
+        app.state.config_error = None
+        logger.info("Application configuration loaded successfully.")
+    except Exception as exc:
+        app.state.settings = None
+        app.state.app_config = None
+        app.state.config_error = str(exc)
+        logger.exception("Failed to load application configuration on startup.")
+    yield
+
+
+app = FastAPI(
+    title="MiniFlow",
+    version="0.0.1",
+    description="Low-latency speech-to-speech agent",
+    lifespan=lifespan,
+)
+
+
+def _encode_wav_base64(waveform, sample_rate: int) -> str:
+    """Encode waveform and sample rate into base64 WAV payload."""
+    if isinstance(waveform, torch.Tensor):
+        audio = waveform.detach().to(dtype=torch.float32).cpu().numpy()
+    else:
+        audio = np.asarray(waveform, dtype=np.float32)
+
+    buffer = io.BytesIO()
+    sf.write(buffer, audio, sample_rate, format="WAV")
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 def _readiness_missing_fields(config: dict) -> list[str]:
@@ -83,13 +119,29 @@ def health_check():
 @app.get("/ready")
 def readiness_check():
     """Readiness probe - checks if service is ready to handle requests."""
-    if not APP_CONFIG:
+    settings = get_settings()
+    if settings is None:
         return JSONResponse(
-            {"status": "not_ready", "reason": "configuration not loaded"},
-            status_code=503
+            {
+                "status": "not_ready",
+                "reason": "settings not loaded",
+                "error": getattr(app.state, "config_error", None),
+            },
+            status_code=503,
         )
 
-    missing_fields = _readiness_missing_fields(APP_CONFIG)
+    app_config = get_app_config()
+    if not app_config:
+        return JSONResponse(
+            {
+                "status": "not_ready",
+                "reason": "configuration not loaded",
+                "error": getattr(app.state, "config_error", None),
+            },
+            status_code=503,
+        )
+
+    missing_fields = _readiness_missing_fields(app_config)
     if missing_fields:
         return JSONResponse(
             {
@@ -136,19 +188,41 @@ async def speech_to_speech(audio_file: UploadFile):
       3. Return transcript, response text, and base64 WAV
     """
     request_id = str(uuid.uuid4())
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     try:
+        settings = get_settings()
+        if settings is None:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "service_not_ready",
+                    "reason": "settings not loaded",
+                    "error": getattr(app.state, "config_error", None),
+                },
+            )
+
         if audio_file.content_type and not audio_file.content_type.startswith("audio/"):
             raise HTTPException(status_code=415, detail="unsupported_media_type")
 
         contents = await audio_file.read()
         if not contents:
             raise HTTPException(status_code=400, detail="empty_audio_file")
-        if len(contents) > MAX_AUDIO_UPLOAD_BYTES:
+        if len(contents) > settings.miniflow_max_audio_upload_bytes:
             raise HTTPException(status_code=413, detail="audio_file_too_large")
 
-        missing_fields = _readiness_missing_fields(APP_CONFIG)
+        app_config = get_app_config()
+        if app_config is None:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "service_not_ready",
+                    "reason": "configuration not loaded",
+                    "error": getattr(app.state, "config_error", None),
+                },
+            )
+
+        missing_fields = _readiness_missing_fields(app_config)
         if missing_fields:
             raise HTTPException(
                 status_code=503,
@@ -158,7 +232,12 @@ async def speech_to_speech(audio_file: UploadFile):
                 },
             )
 
-        waveform, sampling_rate = torchaudio.load(io.BytesIO(contents))
+        try:
+            waveform, sampling_rate = torchaudio.load(io.BytesIO(contents))
+        except RuntimeError as exc:
+            # Map only decode/format errors from torchaudio to client-side 400.
+            logger.exception(f"Invalid audio payload for request {request_id}")
+            raise HTTPException(status_code=400, detail="invalid_audio_payload") from exc
 
         sample = AudioSample(
             audio_tensor=waveform,
@@ -177,28 +256,21 @@ async def speech_to_speech(audio_file: UploadFile):
         result = await asyncio.wait_for(
             asyncio.to_thread(
                 process_sample,
-                config=APP_CONFIG,
+                config=app_config,
                 sample=sample,
                 run_id=request_id,
-                collector=None,  # Production mode - no benchmark collection
+                # Production mode - no benchmark collection
+                collector=None,
                 device=device,
                 history=None,
                 stream_audio=False,
             ),
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=settings.miniflow_request_timeout_seconds,
         )
 
-        # Encode output waveform to base64 WAV for JSON transport
-        buffer = io.BytesIO()
-        sf.write(
-            buffer,
-            result.tts_waveform,
-            result.tts_waveform_output_sr,
-            format="WAV",
-        )
-        wav_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        wav_base64 = _encode_wav_base64(result.tts_waveform, result.tts_waveform_output_sr)
 
-        latency_ms = (time.time() - start_time) * 1000
+        latency_ms = (time.perf_counter() - start_time) * 1000
 
         response_payload = {
             "transcript": result.asr_transcript,
@@ -207,11 +279,11 @@ async def speech_to_speech(audio_file: UploadFile):
             "sample_rate": result.tts_waveform_output_sr,
             "request_id": request_id,
             "latency_ms": round(latency_ms, 2),
-            "release_id": SETTINGS.release_id,
+            "release_id": settings.release_id,
         }
 
         logger.info(
-            f"/s2s request completed",
+            "/s2s request completed",
             extra={
                 "request_id": request_id,
                 "latency_ms": latency_ms,
@@ -226,10 +298,6 @@ async def speech_to_speech(audio_file: UploadFile):
     except asyncio.TimeoutError:
         logger.exception(f"/s2s request timed out: {request_id}")
         raise HTTPException(status_code=504, detail="request_timeout")
-    except RuntimeError as e:
-        # Covers invalid/unsupported audio decode errors surfaced by torchaudio stack.
-        logger.exception(f"Invalid audio payload for request {request_id}")
-        raise HTTPException(status_code=400, detail="invalid_audio_payload") from e
     except Exception as e:
         logger.exception(f"Error in /s2s request {request_id}")
         raise HTTPException(status_code=500, detail="internal_error")

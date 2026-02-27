@@ -13,7 +13,6 @@ from src.benchmark.core.registry import MetricRegistry
 from src.benchmark.runner.summary_models import MetricStats, SummaryRecord
 from src.benchmark.storage.jsonl_storage import JSONLStorage
 from src.config.load_config import load_yaml_config
-from src.config.settings import AppSettings
 from src.sts_pipeline import process_sample
 from src.utils import clear_gpu_cache
 from src.prepare_data import stream_dataset_samples, AudioSample
@@ -64,7 +63,7 @@ class ExperimentRunner:
         metrics: dict[str, BaseMetric],
         config: dict,
         device: torch.device | str,
-        output_dir: Path = Path("/home/childofprophecy/Desktop/Personal_projects/Machine_Learning/MiniFlow/Benchmark"),
+        output_dir: Path = Path("./Benchmark"),
     ):
         """Initialize the experiment runner.
 
@@ -441,13 +440,12 @@ class ExperimentRunner:
             KeyError: If required config keys are missing.
             ValueError: If metric configuration is invalid.
         """
-        settings = AppSettings.from_env()
-        config_dir = Path(config.get("__config_dir", Path.cwd()))
-
-        metrics_value = settings.miniflow_metrics_config or config["metrics"]
-        metrics_config_path = Path(metrics_value)
+        metrics_config_path = Path(config["metrics"])
         if not metrics_config_path.is_absolute():
-            metrics_config_path = (config_dir / metrics_config_path).resolve()
+            raise ValueError(
+                "Expected normalized absolute metrics path in config['metrics']. "
+                "Use inspect_config() before ExperimentRunner.from_config()."
+            )
         if not metrics_config_path.exists():
             logger.warning(f"Metrics config doesn't exist: {metrics_config_path}, stopping..")
             raise FileNotFoundError(f"Metrics config not found: {metrics_config_path}")
