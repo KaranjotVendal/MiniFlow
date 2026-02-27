@@ -95,18 +95,15 @@ def _read_json_endpoint(path: str) -> dict:
         return payload
 
 
-def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> float:
-    """Poll /health until ready or timeout with robust transient-error handling.
-
-    Returns the remaining timeout seconds for use by subsequent checks.
-    """
+def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> None:
+    """Poll /health until ready or timeout with robust transient-error handling."""
     deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
 
     while time.time() < deadline:
         try:
             _check_endpoint_ok("/health")
-            return max(0, deadline - time.time())
+            return
         except (
             URLError,
             HTTPError,
@@ -135,12 +132,9 @@ def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -
     )
 
 
-def wait_for_ready(remaining_timeout: float, interval_seconds: float = 2.0) -> None:
-    """Poll /ready until ready or timeout with robust transient-error handling.
-
-    Uses remaining_timeout to ensure total wait time doesn't exceed original budget.
-    """
-    deadline = time.time() + remaining_timeout
+def wait_for_ready(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> None:
+    """Poll /ready until ready or timeout with robust transient-error handling."""
+    deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
 
     while time.time() < deadline:
@@ -239,7 +233,7 @@ def main() -> int:
     parser.add_argument(
         "--request-timeout-seconds",
         type=int,
-        default=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "900")),
+        default=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "600")),
         help="Timeout for /s2s end-to-end request.",
     )
     parser.add_argument(
@@ -274,11 +268,11 @@ def main() -> int:
         run(compose_cmd("up", "-d", "api"))
 
         print("[5/5] Checking /health...")
-        remaining_timeout = wait_for_health(timeout_seconds=args.startup_timeout_seconds)
+        wait_for_health(timeout_seconds=args.startup_timeout_seconds)
         print("Container health check passed.")
 
         print("Checking /ready...")
-        wait_for_ready(remaining_timeout=remaining_timeout)
+        wait_for_ready(timeout_seconds=args.startup_timeout_seconds)
         print("Container readiness check passed.")
 
         if args.skip_e2e:
