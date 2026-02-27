@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-import sounddevice as sd
 from numpy.typing import NDArray
 import torch
 
@@ -138,6 +137,7 @@ def process_sample(
 
     # optionally stream the generated audio
     if stream_audio:
+        import sounddevice as sd
         print("Playing audio now...")
         sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
         sd.wait()  # Block until playback finishes
