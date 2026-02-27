@@ -281,6 +281,43 @@ def main() -> int:
         wait_for_ready(remaining_timeout=remaining_timeout)
         print("Container readiness check passed.")
 
+        # Safety check: verify CUDA works inside container before /s2s test
+        print("Verifying CUDA functionality...")
+        try:
+            result = run(
+                [
+                    "curl",
+                    "-fsS",
+                    "-X",
+                    "GET",
+                    f"{API_URL}/ready",
+                ],
+                capture=True,
+            )
+            import json
+            ready_info = json.loads(result.stdout)
+            if ready_info.get("device") != "cuda":
+                raise RuntimeError(
+                    f"CUDA not available or disabled. Device: {ready_info.get('device')}. "
+                    "Set MINIFLOW_DEVICE=cpu or fix CUDA issues."
+                )
+            # Additional CUDA sanity check - run a simple tensor operation
+            run(
+                [
+                    "docker", "exec", "miniflow-pr-validate-api-1",
+                    "/app/.venv/bin/python", "-c",
+                    "import torch; x = torch.randn(2,2).cuda(); y = x @ x.T; print('CUDA OK')"
+                ],
+                capture=True,
+            )
+            print("CUDA functionality verified.")
+        except Exception as e:
+            raise RuntimeError(
+                f"CUDA safety check failed: {e}\n"
+                "The /s2s endpoint requires working CUDA. "
+                "Either fix CUDA issues or use --skip-e2e flag."
+            )
+
         if args.skip_e2e:
             print("Skipping /s2s end-to-end check (--skip-e2e).")
         else:
