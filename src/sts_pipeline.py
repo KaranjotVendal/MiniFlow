@@ -138,10 +138,13 @@ def process_sample(
     # optionally stream the generated audio
     if stream_audio:
         import sounddevice as sd
-        print("Playing audio now...")
-        sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
-        sd.wait()  # Block until playback finishes
-        print("Playback complete.")
+        try:
+            print("Playing audio now...")
+            sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
+            sd.wait()  # Block until playback finishes
+            print("Playback complete.")
+        except Exception as e:
+            logger.warning(f"Audio playback failed: {e}")
 
     processed_sample = ProcessedSample(
         groundtruth=sample.transcript,
