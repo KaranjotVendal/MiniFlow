@@ -24,7 +24,10 @@ dependencies = [
     "torchaudio>=2.9.0",
     "torchcodec>=0.8.1",
     "torchvision>=0.24.0",
-    "transformers>=4.57.1",
+    # Pinned: vibevoice submodule is built for transformers 4.51.3 and has
+    # compatibility issues with newer versions (4.58+). See docs/VIBEVOICE_FIXES_README.md
+    # for runtime fixes needed for each transformers upgrade.
+    "transformers==4.57.3",
     "utmosv2",
     "vibevoice",
 ]
