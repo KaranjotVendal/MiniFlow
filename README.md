@@ -102,3 +102,15 @@ uv run python src/scripts/run_memory_experiments.py
 Pipeline configurations are defined in `configs/`:
 - `baseline.yml` - Original XTTS pipeline config
 - `2_TTS-to-vibevoice.yml` - VibeVoice TTS config
+
+## Docker Profiles
+
+Use separate compose modes for prod-like and dev workflows:
+
+```bash
+# Prod-like container runtime (no bind mounts, no reload)
+docker compose up --build
+
+# Dev runtime (bind mounts + autoreload)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
