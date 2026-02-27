@@ -28,6 +28,10 @@ def run_asr(
     pipe = None
     audio = {"array": audio_tensor.squeeze().numpy(), "sampling_rate": sampling_rate}
 
+    # Try with requested device first, fall back to CPU on CUDA errors
+    current_device = device
+    cuda_failed = False
+
     try:
         collector.hardware_metrics.start(collector.context)
         collector.lifecycle_metrics.record_load_start(
@@ -39,7 +43,7 @@ def run_asr(
         pipe = pipeline(
             "automatic-speech-recognition",
             model=config["model_id"],
-            device=device,
+            device=current_device,
             return_timestamps=False,
             generate_kwargs={
                 "language": "en",
@@ -63,7 +67,32 @@ def run_asr(
 
         collector.hardware_metrics.start(collector.context)
         collector.timing_metrics.record_stage_start("asr_inference_latency")
-        pred = pipe(audio)
+        try:
+            pred = pipe(audio)
+        except RuntimeError as e:
+            # Check if it's a CUDA error and we haven't tried CPU yet
+            if "CUDA" in str(e) and current_device != "cpu" and not cuda_failed:
+                logger.warning(f"CUDA error in ASR inference: {e}. Retrying with CPU.")
+                cuda_failed = True
+                # Recreate pipeline on CPU
+                del pipe
+                pipe = pipeline(
+                    "automatic-speech-recognition",
+                    model=config["model_id"],
+                    device="cpu",
+                    return_timestamps=False,
+                    generate_kwargs={
+                        "language": "en",
+                        "task": "transcribe",
+                        "forced_decoder_ids": None,
+                    },
+                )
+                # Update audio to CPU format if needed
+                audio = {"array": audio_tensor.squeeze().cpu().numpy(), "sampling_rate": sampling_rate}
+                pred = pipe(audio)
+                current_device = "cpu"
+            else:
+                raise
         collector.timing_metrics.record_stage_end("asr_inference_latency")
         collector.record_phase_metrics(
             "asr_inference_gpu_metrics",
