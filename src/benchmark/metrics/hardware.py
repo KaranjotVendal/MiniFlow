@@ -65,9 +65,7 @@ class HardwareMetrics(BaseMetric):
         self.is_cuda_available = torch.cuda.is_available()
         self._nvml_available = self._check_nvml_available()
         self.nvitop_device_obj = (
-            nvitop.Device(index=self.device_index)
-            if self._nvml_available
-            else None
+            nvitop.Device(index=self.device_index) if self._nvml_available else None
         )
         self._last_result: HardwareResult | None = None
 
@@ -93,9 +91,7 @@ class HardwareMetrics(BaseMetric):
 
         if isinstance(device, torch.device):
             if device.type != "cuda":
-                raise ValueError(
-                    f"HardwareMetrics requires CUDA device, got: {device.type}"
-                )
+                raise ValueError(f"HardwareMetrics requires CUDA device, got: {device.type}")
             if device.index is not None:
                 return int(device.index)
             if not torch.cuda.is_available():
@@ -113,13 +109,9 @@ class HardwareMetrics(BaseMetric):
                     return int(value.split(":", maxsplit=1)[1])
                 except ValueError as exc:
                     raise ValueError(f"Invalid CUDA device spec: {device}") from exc
-            raise ValueError(
-                f"Unsupported device string: {device}. Expected 'cuda' or 'cuda:N'."
-            )
+            raise ValueError(f"Unsupported device string: {device}. Expected 'cuda' or 'cuda:N'.")
 
-        raise TypeError(
-            f"Unsupported device type for HardwareMetrics: {type(device).__name__}"
-        )
+        raise TypeError(f"Unsupported device type for HardwareMetrics: {type(device).__name__}")
 
     def _sync_cuda(self) -> None:
         """wait for GPU ops and ensure timing accuracy"""
@@ -218,9 +210,7 @@ class HardwareMetrics(BaseMetric):
             metrics["gpu_memory_allocated_mb"] = allocated
             metrics["gpu_memory_reserved_mb"] = reserved
             metrics["gpu_memory_peak_mb"] = self._get_gpu_memory_peak_allocated()
-            metrics["gpu_memory_efficiency"] = (
-                allocated / reserved if reserved > 0 else 0.0
-            )
+            metrics["gpu_memory_efficiency"] = allocated / reserved if reserved > 0 else 0.0
 
             if self.track_power:
                 metrics["gpu_power_draw_watts"] = self._get_power_draw()
@@ -244,9 +234,7 @@ class HardwareMetrics(BaseMetric):
                 waste_ratio = (reserved - allocated) / reserved if reserved > 0 else 0.0
 
                 metrics["fragmentation_waste_ratio"] = waste_ratio
-                metrics["inactive_blocks"] = stats.get(
-                    "inactive_split.all.alloc_count", 0
-                )
+                metrics["inactive_blocks"] = stats.get("inactive_split.all.alloc_count", 0)
                 metrics["segment_count"] = stats.get("segment.count", 0)
                 metrics["pool_fraction"] = stats.get("pool_fraction", 0.0)
                 metrics["is_fragmented"] = waste_ratio > self.waste_threshold

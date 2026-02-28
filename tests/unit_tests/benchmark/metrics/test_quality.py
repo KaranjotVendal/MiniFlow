@@ -1,12 +1,11 @@
 import pytest
 import torch
 
-from src.benchmark.core.base import MetricContext, Stage
 from src.benchmark.core.registry import MetricRegistry
 from src.benchmark.metrics.quality import (
     QualityMetrics,
-    WEREvaluator,
     UTMOSEvaluator,
+    WEREvaluator,
     get_evaluator,
 )
 from tests.conftest import requires_ffmpeg

@@ -13,6 +13,7 @@ class ModelLifecycleMetrics(BaseMetric):
     hits/misses. It's useful for identifying loading bottlenecks and measuring
     cache efficiency across multiple trials.
     """
+
     # TODO: This class needs to be rethink and redesigned to make sure accurate model time taking
 
     def __init__(self, config: dict | None = None):
@@ -23,9 +24,7 @@ class ModelLifecycleMetrics(BaseMetric):
                 - track_gpu_transfer: Track time to transfer model to GPU (default: True)
         """
         super().__init__(config)
-        self.track_gpu_transfer: bool = (
-            config.get("track_gpu_transfer", True) if config else True
-        )
+        self.track_gpu_transfer: bool = config.get("track_gpu_transfer", True) if config else True
         self._load_events: list[dict] = []
         self._current_load: dict | None = None
         self._last_result: LifecycleResult | None = None
@@ -87,15 +86,10 @@ class ModelLifecycleMetrics(BaseMetric):
         # [This todo has a plan that will be implemented by me manually]
 
         # Calculate GPU transfer time if tracked and applicable
-        if (
-            self.track_gpu_transfer
-            and self._current_load.get("gpu_transfer_start") is not None
-        ):
+        if self.track_gpu_transfer and self._current_load.get("gpu_transfer_start") is not None:
             gpu_start = self._current_load["gpu_transfer_start"]
             self._current_load["gpu_transfer_time"] = end_time - gpu_start
-            self._current_load["disk_load_time"] = (
-                gpu_start - self._current_load["start_time"]
-            )
+            self._current_load["disk_load_time"] = gpu_start - self._current_load["start_time"]
         else:
             self._current_load["gpu_transfer_time"] = 0.0
             self._current_load["disk_load_time"] = self._current_load["total_time"]

@@ -6,10 +6,9 @@ Entry point for both:
   • WebSocket /ws endpoint for low-latency streaming audio interaction
 """
 
-import base64
 import asyncio
+import base64
 import io
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -27,13 +26,15 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.sts_pipeline import process_sample
 from src.config import AppSettings
 from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 from src.prepare_data import AudioSample
+from src.sts_pipeline import process_sample
+from src.utils import get_device
 
 logger = initialise_logger(__name__)
+
 
 def load_app_config(settings: AppSettings) -> dict:
     config_path = settings.resolve_config_path()
@@ -153,16 +154,10 @@ def readiness_check():
             status_code=503,
         )
 
-    cuda_available = torch.cuda.is_available()
-    # Use env var if set, otherwise auto-detect
-    device = os.getenv("MINIFLOW_DEVICE", "cuda" if cuda_available else "cpu")
-    if device not in ("cuda", "cpu"):
-        device = "cuda" if cuda_available else "cpu"
-
     return {
         "status": "ready",
-        "cuda_available": cuda_available,
-        "device": device,
+        "cuda_available": torch.cuda.is_available(),
+        "device": get_device(),
     }
 
 
@@ -174,6 +169,7 @@ def metrics_stub():
 
 class S2SResponse(BaseModel):
     """Response model for /s2s endpoint."""
+
     transcript: str
     response: str
     audio: str  # base64 encoded WAV
@@ -254,11 +250,6 @@ async def speech_to_speech(audio_file: UploadFile):
             sampling_rate=sampling_rate,
         )
 
-        # Get device - use env var if set, otherwise auto-detect
-        device = os.getenv("MINIFLOW_DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
-        if device not in ("cuda", "cpu"):
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-
         # Process sample (collector=None for production mode - lightweight telemetry)
         result = await asyncio.wait_for(
             asyncio.to_thread(
@@ -268,7 +259,7 @@ async def speech_to_speech(audio_file: UploadFile):
                 run_id=request_id,
                 # Production mode - no benchmark collection
                 collector=None,
-                device=device,
+                device=get_device(),
                 history=None,
                 stream_audio=False,
             ),
@@ -295,19 +286,19 @@ async def speech_to_speech(audio_file: UploadFile):
                 "request_id": request_id,
                 "latency_ms": latency_ms,
                 "release_id": response_payload["release_id"],
-            }
+            },
         )
 
         return JSONResponse(response_payload)
 
     except HTTPException:
         raise
-    except asyncio.TimeoutError:
+    except TimeoutError as exc:
         logger.exception(f"/s2s request timed out: {request_id}")
-        raise HTTPException(status_code=504, detail="request_timeout")
-    except Exception as e:
+        raise HTTPException(status_code=504, detail="request_timeout") from exc
+    except Exception as exc:
         logger.exception(f"Error in /s2s request {request_id}")
-        raise HTTPException(status_code=500, detail="internal_error")
+        raise HTTPException(status_code=500, detail="internal_error") from exc
 
 
 # WebSocket Endpoint: stub with clear message

@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 import torch
 from numpy.typing import NDArray
 
+from src.llm.llm_pipeline import run_llm
+from src.logger.logging import initialise_logger
+from src.prepare_data import AudioSample
 from src.stt.stt_pipeline import run_asr
 from src.tts.tts_pipelines import run_tts
-from src.llm.llm_pipeline import run_llm
-from src.prepare_data import AudioSample
-from src.logger.logging import initialise_logger
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -117,16 +117,11 @@ def process_sample(
     collector: "BenchmarkCollector | None" = None,
     device: torch.device | str = "cuda",
     history: list[dict] | None = None,
-    stream_audio: bool = False
+    stream_audio: bool = False,
 ) -> ProcessedSample:
     """End-to-End processing for one audio sample."""
     if collector is None:
         collector = NoOpCollector()
-
-    # Resolve device with automatic CPU fallback on CUDA errors
-    actual_device = get_device(device)
-    if actual_device != device:
-        logger.info(f"Using {actual_device} instead of requested {device}")
 
     # ASR
     transcription = run_asr(
@@ -135,7 +130,7 @@ def process_sample(
         sampling_rate=sample.sampling_rate,
         groundtruth=sample.transcript,
         collector=collector,
-        device=actual_device,
+        device=device,
     )
 
     # LLM
@@ -144,14 +139,14 @@ def process_sample(
         transcription=transcription,
         history=history,
         collector=collector,
-        device=actual_device
+        device=device,
     )
 
     # TTS (can optionally use input audio as reference for voice)
     tts_waveform, output_sample_rate = run_tts(
         config=config["tts"],
         llm_response=response,
-        device=actual_device,
+        device=device,
         collector=collector,
         # , audio_tensor, sampling_rate
     )
@@ -161,6 +156,7 @@ def process_sample(
     # optionally stream the generated audio
     if stream_audio:
         import sounddevice as sd
+
         try:
             print("Playing audio now...")
             sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
@@ -175,12 +171,13 @@ def process_sample(
         llm_response=response,
         tts_waveform=tts_waveform,
         tts_waveform_output_sr=output_sample_rate,
-        new_history=new_history)
+        new_history=new_history,
+    )
 
-        # TODO: implement multi turn system. might need to find a dataset with
-        # multi turn conversation
-        # if i == (num_samples - 1):
-        #     logger.info(f"Simulating 2nd turn...")
-        #
+    # TODO: implement multi turn system. might need to find a dataset with
+    # multi turn conversation
+    # if i == (num_samples - 1):
+    #     logger.info(f"Simulating 2nd turn...")
+    #
 
     return processed_sample

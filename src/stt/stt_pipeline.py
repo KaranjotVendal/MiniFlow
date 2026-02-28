@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 import torch
 from transformers import pipeline
 
-from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
+from src.utils import clear_gpu_cache
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -64,7 +64,6 @@ def run_asr(
             load_event["success"] = True
         load_closed = True
 
-
         collector.hardware_metrics.start(collector.context)
         collector.timing_metrics.record_stage_start("asr_inference_latency")
         try:
@@ -88,7 +87,10 @@ def run_asr(
                     },
                 )
                 # Update audio to CPU format if needed
-                audio = {"array": audio_tensor.squeeze().cpu().numpy(), "sampling_rate": sampling_rate}
+                audio = {
+                    "array": audio_tensor.squeeze().cpu().numpy(),
+                    "sampling_rate": sampling_rate,
+                }
                 pred = pipe(audio)
                 current_device = "cpu"
             else:
@@ -100,7 +102,9 @@ def run_asr(
         )
 
         transcription = pred["text"]
-        wer_score: dict[str, float] = collector.quality_metrics.evaluate(evaluator="wer", prediction=transcription, reference=groundtruth)
+        wer_score: dict[str, float] = collector.quality_metrics.evaluate(
+            evaluator="wer", prediction=transcription, reference=groundtruth
+        )
         collector.current_trial.quality.wer = wer_score["wer"]
 
         return transcription

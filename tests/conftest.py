@@ -12,8 +12,9 @@ def _is_ffmpeg_available() -> bool:
     """
     try:
         # Try to use torchaudio save which requires FFmpeg
-        import torchaudio
         from io import BytesIO
+
+        import torchaudio
 
         waveform = torch.zeros(16000)
         buffer = BytesIO()
