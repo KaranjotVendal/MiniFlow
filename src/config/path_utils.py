@@ -17,4 +17,3 @@ def resolve_path(path_value: str | Path, base_dir: Path | None = None) -> Path:
 def resolve_path_relative_to_file(path_value: str | Path, file_path: Path) -> Path:
     """Resolve a path relative to the parent directory of `file_path`."""
     return resolve_path(path_value, base_dir=file_path.parent)
-

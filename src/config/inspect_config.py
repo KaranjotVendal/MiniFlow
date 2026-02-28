@@ -1,5 +1,5 @@
-from pprint import pprint
 from pathlib import Path
+from pprint import pprint
 
 from src.config.load_config import load_yaml_config
 from src.config.path_utils import resolve_path_relative_to_file

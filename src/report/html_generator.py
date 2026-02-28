@@ -1,7 +1,6 @@
 # src/report/html_generator.py
-from pathlib import Path
 import base64
-import shutil
+from pathlib import Path
 
 try:
     # preferred: install `markdown` package (pip install markdown)
@@ -10,6 +9,7 @@ try:
     HAVE_MARKDOWN = True
 except Exception:
     HAVE_MARKDOWN = False
+
 
 # TODO: refactor w.r.t new benchmark framwork
 def _embed_image_tag(img_path: Path) -> str:
@@ -48,17 +48,13 @@ def convert_markdown_to_html(md_text: str) -> str:
             start = line.find("![](") + 4
             end = line.find(")", start)
             path = line[start:end]
-            out.append(
-                f'<img src="{path}" alt="" style="max-width:100%;height:auto;" />'
-            )
+            out.append(f'<img src="{path}" alt="" style="max-width:100%;height:auto;" />')
         else:
             out.append(f"<p>{line}</p>")
     return "\n".join(out)
 
 
-def generate_html_report_from_md(
-    exp_dir: str | Path, md_filename: str = "report.md"
-) -> Path:
+def generate_html_report_from_md(exp_dir: str | Path, md_filename: str = "report.md") -> Path:
     exp_dir = Path(exp_dir)
     md_path = exp_dir / md_filename
     if not md_path.exists():

@@ -1,4 +1,3 @@
-import pytest
 import time
 
 from src.benchmark.core.base import MetricContext, Stage

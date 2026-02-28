@@ -1,11 +1,12 @@
 import yaml
-import pytest
 
 from src.benchmark.config.loader import load_benchmark_config
 from src.benchmark.config.validation import (
-    MetricsConfig,
     BenchmarkConfig,
+    MetricsConfig,
 )
+
+
 # TODO: this test can get resolve by resolving benchmark/config/* flles.
 class TestConfigIntegration:
     """Integration tests for config loading and validation."""

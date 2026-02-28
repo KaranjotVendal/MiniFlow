@@ -111,7 +111,7 @@ class TestTrackMemory:
         metrics: dict[str, Any] = {}
         with pytest.raises(RuntimeError):
             with track_memory("failing_alloc", metrics):
-                tensor = torch.zeros(100, 100, device="cuda")
+                _tensor = torch.zeros(100, 100, device="cuda")
                 raise RuntimeError("Test error")
 
         assert "failing_alloc_memory_delta_mb" in metrics
@@ -135,13 +135,10 @@ class TestTrackMemory:
 
         metrics: dict[str, Any] = {}
         with track_memory("first_alloc", metrics):
-            t1 = torch.zeros(50, 50, device="cuda")
+            _t1 = torch.zeros(50, 50, device="cuda")
         with track_memory("second_alloc", metrics):
-            t2 = torch.zeros(100, 100, device="cuda")
+            _t2 = torch.zeros(100, 100, device="cuda")
 
         assert "first_alloc_memory_delta_mb" in metrics
         assert "second_alloc_memory_delta_mb" in metrics
-        assert (
-            metrics["second_alloc_memory_delta_mb"]
-            >= metrics["first_alloc_memory_delta_mb"]
-        )
+        assert metrics["second_alloc_memory_delta_mb"] >= metrics["first_alloc_memory_delta_mb"]

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
+
 from src.report.html_generator import generate_html_report_from_md
+
 
 # TODO: refactor w.r.t new benchmark framework
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--exp_dir", required=True, help="Experiment folder with report.md"
-    )
+    parser.add_argument("--exp_dir", required=True, help="Experiment folder with report.md")
     args = parser.parse_args()
     path = Path(args.exp_dir)
     if not path.exists():

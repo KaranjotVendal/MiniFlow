@@ -6,8 +6,8 @@ Entry point for both:
   • WebSocket /ws endpoint for low-latency streaming audio interaction
 """
 
-import base64
 import asyncio
+import base64
 import io
 import time
 import uuid
@@ -26,13 +26,14 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.sts_pipeline import process_sample
 from src.config import AppSettings
 from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 from src.prepare_data import AudioSample
+from src.sts_pipeline import process_sample
 
 logger = initialise_logger(__name__)
+
 
 def load_app_config(settings: AppSettings) -> dict:
     config_path = settings.resolve_config_path()
@@ -169,6 +170,7 @@ def metrics_stub():
 
 class S2SResponse(BaseModel):
     """Response model for /s2s endpoint."""
+
     transcript: str
     response: str
     audio: str  # base64 encoded WAV
@@ -288,19 +290,19 @@ async def speech_to_speech(audio_file: UploadFile):
                 "request_id": request_id,
                 "latency_ms": latency_ms,
                 "release_id": response_payload["release_id"],
-            }
+            },
         )
 
         return JSONResponse(response_payload)
 
     except HTTPException:
         raise
-    except asyncio.TimeoutError:
+    except TimeoutError as exc:
         logger.exception(f"/s2s request timed out: {request_id}")
-        raise HTTPException(status_code=504, detail="request_timeout")
-    except Exception as e:
+        raise HTTPException(status_code=504, detail="request_timeout") from exc
+    except Exception as exc:
         logger.exception(f"Error in /s2s request {request_id}")
-        raise HTTPException(status_code=500, detail="internal_error")
+        raise HTTPException(status_code=500, detail="internal_error") from exc
 
 
 # WebSocket Endpoint: stub with clear message

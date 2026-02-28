@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
 import torch
 
 from src.stt.stt_pipeline import run_asr
@@ -27,9 +26,7 @@ def _collector_mock() -> MagicMock:
 
 
 def test_run_asr_uses_collector_hooks(monkeypatch):
-    monkeypatch.setattr(
-        "src.stt.stt_pipeline.pipeline", lambda *args, **kwargs: _FakeASRPipeline()
-    )
+    monkeypatch.setattr("src.stt.stt_pipeline.pipeline", lambda *args, **kwargs: _FakeASRPipeline())
     monkeypatch.setattr("src.stt.stt_pipeline.clear_gpu_cache", lambda: None)
 
     collector = _collector_mock()
@@ -44,16 +41,12 @@ def test_run_asr_uses_collector_hooks(monkeypatch):
     )
 
     assert transcription == "hello world"
-    collector.timing_metrics.record_stage_start.assert_called_once_with(
-        "asr_inference_latency"
-    )
+    collector.timing_metrics.record_stage_start.assert_called_once_with("asr_inference_latency")
     collector.lifecycle_metrics.record_load_start.assert_called_once()
     collector.lifecycle_metrics.record_load_end.assert_called_once_with(cached=False)
     assert collector.hardware_metrics.start.call_count == 2
     assert collector.hardware_metrics.end.call_count == 2
     assert collector.record_phase_metrics.call_count == 2
-    collector.timing_metrics.record_stage_end.assert_called_once_with(
-        "asr_inference_latency"
-    )
+    collector.timing_metrics.record_stage_end.assert_called_once_with("asr_inference_latency")
     collector.quality_metrics.evaluate.assert_called_once()
     assert collector.current_trial.quality.wer == 0.0
