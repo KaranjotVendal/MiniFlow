@@ -1,6 +1,7 @@
 import yaml
 from pathlib import Path
 
+
 # TODO: this can be deleted since we already have load_yaml_config
 def load_benchmark_config(config_path: str | Path) -> dict:
     """Load a benchmark configuration from a YAML file."""

@@ -77,7 +77,9 @@ def run_llm(
         # model
         quant_config = _quant_config(config)
         collector.hardware_metrics.start(collector.context)
-        collector.lifecycle_metrics.record_load_start(model_name=config["model_name"], source="remote(HF)")
+        collector.lifecycle_metrics.record_load_start(
+            model_name=config["model_name"], source="remote(HF)"
+        )
 
         model = AutoModelForCausalLM.from_pretrained(
             config["model_id"],
@@ -97,7 +99,9 @@ def run_llm(
 
         # tokenizer
         collector.hardware_metrics.start(collector.context)
-        collector.lifecycle_metrics.record_load_start(model_name="tokenizer", source="remote(HF)")
+        collector.lifecycle_metrics.record_load_start(
+            model_name="tokenizer", source="remote(HF)"
+        )
 
         tokenizer = AutoTokenizer.from_pretrained(config["model_id"])
 
@@ -141,7 +145,9 @@ def run_llm(
         collector.hardware_metrics.start(collector.context)
         collector.timing_metrics.record_stage_start("llm_inference_latency")
 
-        response = pipe(prompt, max_new_tokens=config["max_new_tokens"], do_sample=False)
+        response = pipe(
+            prompt, max_new_tokens=config["max_new_tokens"], do_sample=False
+        )
 
         collector.timing_metrics.record_stage_end("llm_inference_latency")
         collector.record_phase_metrics(
@@ -165,7 +171,6 @@ def run_llm(
             {"role": "assistant", "content": assistant_reply},
         ]
         return assistant_reply, updated_history
-
 
     except Exception:
         if collector is not None and not load_closed:

@@ -12,11 +12,19 @@ class LatencyRecord:
     tts_seconds: float | None = None
     pipeline_seconds: float | None = None
 
-    def populate(self, stage_latencies: dict[str, float], total_latency: float | None) -> None:
+    def populate(
+        self, stage_latencies: dict[str, float], total_latency: float | None
+    ) -> None:
         self.total_latency_seconds = total_latency
-        self.asr_seconds = stage_latencies.get("asr", stage_latencies.get("asr_inference_latency"))
-        self.llm_seconds = stage_latencies.get("llm", stage_latencies.get("llm_inference_latency"))
-        self.tts_seconds = stage_latencies.get("tts", stage_latencies.get("tts_inference_latency"))
+        self.asr_seconds = stage_latencies.get(
+            "asr", stage_latencies.get("asr_inference_latency")
+        )
+        self.llm_seconds = stage_latencies.get(
+            "llm", stage_latencies.get("llm_inference_latency")
+        )
+        self.tts_seconds = stage_latencies.get(
+            "tts", stage_latencies.get("tts_inference_latency")
+        )
         self.pipeline_seconds = stage_latencies.get("pipeline")
 
     def to_dict(self) -> dict[str, Any]:

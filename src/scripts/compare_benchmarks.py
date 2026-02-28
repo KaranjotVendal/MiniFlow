@@ -28,6 +28,7 @@ from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
 
+
 # TODO: refactor w.r.t new benhcmark framwork
 def parse_config(config_path: Path) -> dict[str, str]:
     """Parse config.yml to extract readable component names."""
@@ -58,7 +59,7 @@ def compute_memory_stats(logs_path: Path) -> dict[str, float]:
         "tts_peak_mean": 0.0,
         "max_asr": 0.0,
         "max_llm": 0.0,
-        "max_tts": 0.0
+        "max_tts": 0.0,
     }
 
     asr_peaks = []
@@ -76,9 +77,21 @@ def compute_memory_stats(logs_path: Path) -> dict[str, float]:
             llm_peaks.append(record["llm_gpu_peak_mem"])
             tts_peaks.append(record["tts_gpu_peak_mem"])
 
-            max_asr = record["asr_gpu_peak_mem"] if max_asr < record["asr_gpu_peak_mem"] else max_asr
-            max_llm = record["llm_gpu_peak_mem"] if max_llm < record["llm_gpu_peak_mem"] else max_llm
-            max_tts = record["tts_gpu_peak_mem"] if max_tts < record["tts_gpu_peak_mem"] else max_tts
+            max_asr = (
+                record["asr_gpu_peak_mem"]
+                if max_asr < record["asr_gpu_peak_mem"]
+                else max_asr
+            )
+            max_llm = (
+                record["llm_gpu_peak_mem"]
+                if max_llm < record["llm_gpu_peak_mem"]
+                else max_llm
+            )
+            max_tts = (
+                record["tts_gpu_peak_mem"]
+                if max_tts < record["tts_gpu_peak_mem"]
+                else max_tts
+            )
 
     if asr_peaks:
         stats["asr_peak_mean"] = sum(asr_peaks) / len(asr_peaks)
@@ -226,7 +239,6 @@ def compare_two(
         ("max_asr", "Max ASR"),
         ("max_llm", "Max LLM"),
         ("max_tts", "Max TTS"),
-
     ]
 
     for key, label in mem_metrics:

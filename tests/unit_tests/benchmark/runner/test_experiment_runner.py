@@ -6,7 +6,9 @@ import yaml
 from src.benchmark.runner.experiment_runner import ExperimentRunner, ExperimentSummary
 
 
-def _write_metrics_config(tmp_path: Path, enabled: list[str], configurations: dict) -> Path:
+def _write_metrics_config(
+    tmp_path: Path, enabled: list[str], configurations: dict
+) -> Path:
     metrics_path = tmp_path / "metrics.yml"
     metrics_path.write_text(
         yaml.safe_dump({"enabled": enabled, "configurations": configurations})
@@ -75,6 +77,7 @@ class TestExperimentSummary:
         assert summary.run_id == "123_test_exp"
         assert summary.num_trials == 10
         assert summary.summary is None
+
 
 # Queestion: should this be in integration test folder? is this a reeal integration test?
 class TestRunnerIntegration:

@@ -60,7 +60,6 @@ def run_asr(
             load_event["success"] = True
         load_closed = True
 
-
         collector.hardware_metrics.start(collector.context)
         collector.timing_metrics.record_stage_start("asr_inference_latency")
         pred = pipe(audio)
@@ -71,7 +70,9 @@ def run_asr(
         )
 
         transcription = pred["text"]
-        wer_score: dict[str, float] = collector.quality_metrics.evaluate(evaluator="wer", prediction=transcription, reference=groundtruth)
+        wer_score: dict[str, float] = collector.quality_metrics.evaluate(
+            evaluator="wer", prediction=transcription, reference=groundtruth
+        )
         collector.current_trial.quality.wer = wer_score["wer"]
 
         return transcription

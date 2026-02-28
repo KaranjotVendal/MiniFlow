@@ -26,7 +26,9 @@ def main() -> None:
         )
         trial_metrics = collector.end_trial(status="success")
     except Exception:
-        trial_metrics = collector.end_trial(status="error", error="PipelineDebugFailure")
+        trial_metrics = collector.end_trial(
+            status="error", error="PipelineDebugFailure"
+        )
         raise
 
     print("Pipeline debug run: success")

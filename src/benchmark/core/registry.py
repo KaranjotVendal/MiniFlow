@@ -39,7 +39,6 @@ class MetricRegistry:
 
         def decorator(metric_class: Type[BaseMetric]) -> Type[BaseMetric]:
             if name in cls._metrics:
-
                 logger.warning(f"Metric '{name}' is already registered. Overwriting.")
             cls._metrics[name] = metric_class
             return metric_class

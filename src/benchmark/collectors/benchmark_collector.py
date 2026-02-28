@@ -43,7 +43,9 @@ class BenchmarkCollector:
         self.hardware_metrics: HardwareMetrics = self._find_metric(
             HardwareMetrics, metric_name="HardwareMetrics"
         )
-        self.trial_hardware_metrics = HardwareMetrics(self.hardware_metrics.config.copy())
+        self.trial_hardware_metrics = HardwareMetrics(
+            self.hardware_metrics.config.copy()
+        )
 
         benchmark_config = self.config["benchmark"]
         self.is_streaming = bool(benchmark_config["enable_streaming_audio"])
@@ -205,7 +207,6 @@ class BenchmarkCollector:
         is_warmup: bool = False,
         # TODO: what is a metadata for? what exactly are we trying to log with this?
         metadata: dict[str, Any] | None = None,
-
     ) -> None:
         if self._trial_started:
             raise RuntimeError("A trial is already active. Call end_trial() first.")

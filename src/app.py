@@ -34,6 +34,7 @@ from src.prepare_data import AudioSample
 
 logger = initialise_logger(__name__)
 
+
 def load_app_config(settings: AppSettings) -> dict:
     config_path = settings.resolve_config_path()
     config = load_yaml_config(config_path)
@@ -169,6 +170,7 @@ def metrics_stub():
 
 class S2SResponse(BaseModel):
     """Response model for /s2s endpoint."""
+
     transcript: str
     response: str
     audio: str  # base64 encoded WAV
@@ -237,7 +239,9 @@ async def speech_to_speech(audio_file: UploadFile):
         except RuntimeError as exc:
             # Map only decode/format errors from torchaudio to client-side 400.
             logger.exception(f"Invalid audio payload for request {request_id}")
-            raise HTTPException(status_code=400, detail="invalid_audio_payload") from exc
+            raise HTTPException(
+                status_code=400, detail="invalid_audio_payload"
+            ) from exc
 
         sample = AudioSample(
             audio_tensor=waveform,
@@ -268,7 +272,9 @@ async def speech_to_speech(audio_file: UploadFile):
             timeout=settings.miniflow_request_timeout_seconds,
         )
 
-        wav_base64 = _encode_wav_base64(result.tts_waveform, result.tts_waveform_output_sr)
+        wav_base64 = _encode_wav_base64(
+            result.tts_waveform, result.tts_waveform_output_sr
+        )
 
         latency_ms = (time.perf_counter() - start_time) * 1000
 
@@ -288,7 +294,7 @@ async def speech_to_speech(audio_file: UploadFile):
                 "request_id": request_id,
                 "latency_ms": latency_ms,
                 "release_id": response_payload["release_id"],
-            }
+            },
         )
 
         return JSONResponse(response_payload)

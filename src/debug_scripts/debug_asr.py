@@ -11,7 +11,9 @@ def main() -> None:
 
     sample = next(stream_dataset_samples(num_samples=1, split="test"))
 
-    collector.start_trial(trial_id="debug_asr_1", sample_id="debug_asr_1", is_warmup=False)
+    collector.start_trial(
+        trial_id="debug_asr_1", sample_id="debug_asr_1", is_warmup=False
+    )
     wall_start = time.perf_counter()
 
     try:

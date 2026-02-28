@@ -6,7 +6,9 @@ def main() -> None:
     config, collector, device = build_collector("configs/baseline.yml")
     llm_config = config["llm"]
 
-    collector.start_trial(trial_id="debug_llm_1", sample_id="debug_llm_1", is_warmup=False)
+    collector.start_trial(
+        trial_id="debug_llm_1", sample_id="debug_llm_1", is_warmup=False
+    )
 
     try:
         response, history = run_llm(

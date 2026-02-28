@@ -7,8 +7,12 @@ import torch
 from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
 from src.tts.vibevoice_compatibility_utils import _fix_prefilled_outputs
-from vibevoice.modular.modeling_vibevoice_streaming_inference import VibeVoiceStreamingForConditionalGenerationInference
-from vibevoice.processor.vibevoice_streaming_processor import VibeVoiceStreamingProcessor
+from vibevoice.modular.modeling_vibevoice_streaming_inference import (
+    VibeVoiceStreamingForConditionalGenerationInference,
+)
+from vibevoice.processor.vibevoice_streaming_processor import (
+    VibeVoiceStreamingProcessor,
+)
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -24,11 +28,13 @@ def _torch_compatibility_fix(model) -> None:
     # This line is needed because transformers 4.57.x requires num_hidden_layers
     # but VibeVoiceStreamingConfig (originally for 4.x) doesn't expose it.
     # See: VIBEVOICE_FIXES_README.md
-    if not hasattr(model.config, 'num_hidden_layers'):
+    if not hasattr(model.config, "num_hidden_layers"):
         model.config.num_hidden_layers = model.config.decoder_config.num_hidden_layers
 
 
-def _device_attn_implementation(device: torch.device | str) -> tuple[str, torch.dtype, str]:
+def _device_attn_implementation(
+    device: torch.device | str,
+) -> tuple[str, torch.dtype, str]:
     # Determine dtype and attention implementation based on device
     device_str = str(device).split(":")[0] if ":" in str(device) else str(device)
 
@@ -44,10 +50,13 @@ def _device_attn_implementation(device: torch.device | str) -> tuple[str, torch.
 
     return device_str, load_dtype, attn_impl
 
+
 def _handle_speaker_voice(config: dict, device_str: str) -> dict:
     # Speaker handling - use config-based path or default
     voice_name = config.get("voice_name", "en-Emma_woman")
-    voice_base_dir = Path(__file__).parent.parent.parent / "vibevoice/demo/voices/streaming_model"
+    voice_base_dir = (
+        Path(__file__).parent.parent.parent / "vibevoice/demo/voices/streaming_model"
+    )
     voice_path = voice_base_dir / f"{voice_name}.pt"
 
     if not voice_path.exists():
@@ -57,7 +66,9 @@ def _handle_speaker_voice(config: dict, device_str: str) -> dict:
         if not voice_path.exists():
             raise FileNotFoundError(f"Voice file not found at: {voice_path}")
 
-    all_prefilled_outputs = torch.load(voice_path, map_location=device_str, weights_only=False)
+    all_prefilled_outputs = torch.load(
+        voice_path, map_location=device_str, weights_only=False
+    )
     # =============================================================================
     # TRANSFORMERS 4.57.x COMPATIBILITY FIX
     # =============================================================================
@@ -70,10 +81,11 @@ def _handle_speaker_voice(config: dict, device_str: str) -> dict:
     return all_prefilled_outputs
 
 
-def run_vibevoice(config: dict,
+def run_vibevoice(
+    config: dict,
     llm_response: str,
     device: str | torch.device,
-    collector: "BenchmarkCollector"
+    collector: "BenchmarkCollector",
 ) -> tuple[torch.Tensor, int]:
     """Run VibeVoice realtime TTS model.
 
@@ -123,19 +135,23 @@ def run_vibevoice(config: dict,
             )
 
             if device_str == "mps":
-                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                    config["model_id"],
-                    dtype=load_dtype,
-                    attn_implementation=attn_impl,
-                    device_map=None,
+                model = (
+                    VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                        config["model_id"],
+                        dtype=load_dtype,
+                        attn_implementation=attn_impl,
+                        device_map=None,
+                    )
                 )
                 model.to(device_str)
             else:  # cuda or cpu
-                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                    config["model_id"],
-                    dtype=load_dtype,
-                    device_map=device_str,
-                    attn_implementation=attn_impl,
+                model = (
+                    VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                        config["model_id"],
+                        dtype=load_dtype,
+                        device_map=device_str,
+                        attn_implementation=attn_impl,
+                    )
                 )
 
             model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
@@ -157,13 +173,17 @@ def run_vibevoice(config: dict,
                     model = None
                 clear_gpu_cache()
 
-                model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-                    config["model_id"],
-                    dtype=load_dtype,
-                    device_map=device_str,
-                    attn_implementation="sdpa",
+                model = (
+                    VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
+                        config["model_id"],
+                        dtype=load_dtype,
+                        device_map=device_str,
+                        attn_implementation="sdpa",
+                    )
                 )
-                model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
+                model_load_event = collector.lifecycle_metrics.record_load_end(
+                    cached=False
+                )
                 collector.record_phase_metrics(
                     "tts_model_load_gpu_metrics",
                     collector.hardware_metrics.end(collector.context),
@@ -173,7 +193,9 @@ def run_vibevoice(config: dict,
                     model_load_event["cached"] = False
                     model_load_event["success"] = True
             else:
-                model_load_event = collector.lifecycle_metrics.record_load_end(cached=False)
+                model_load_event = collector.lifecycle_metrics.record_load_end(
+                    cached=False
+                )
                 if model_load_event is not None:
                     model_load_event["stage"] = "tts"
                     model_load_event["cached"] = False
@@ -230,7 +252,7 @@ def run_vibevoice(config: dict,
         collector.current_trial.quality.utmos = utmos_score["utmos"]
 
         logger.info(
-            f"VibeVoice: Generated {len(tts_waveform)/out_sample_rate:.2f}s of audio"
+            f"VibeVoice: Generated {len(tts_waveform) / out_sample_rate:.2f}s of audio"
         )
         return tts_waveform, out_sample_rate
     finally:

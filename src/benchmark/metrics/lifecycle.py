@@ -13,6 +13,7 @@ class ModelLifecycleMetrics(BaseMetric):
     hits/misses. It's useful for identifying loading bottlenecks and measuring
     cache efficiency across multiple trials.
     """
+
     # TODO: This class needs to be rethink and redesigned to make sure accurate model time taking
 
     def __init__(self, config: dict | None = None):
@@ -124,7 +125,9 @@ class ModelLifecycleMetrics(BaseMetric):
         cache_misses = len(self._load_events) - cache_hits
 
         self._last_result = LifecycleResult(
-            load_events=[ModelLoadResult.from_dict(event) for event in self._load_events],
+            load_events=[
+                ModelLoadResult.from_dict(event) for event in self._load_events
+            ],
             total_model_load_time=round(total_load_time, 6),
             cache_hits=cache_hits,
             cache_misses=cache_misses,
@@ -134,5 +137,7 @@ class ModelLifecycleMetrics(BaseMetric):
 
     def to_result(self) -> LifecycleResult:
         if self._last_result is None:
-            raise RuntimeError("ModelLifecycleMetrics result is unavailable before end().")
+            raise RuntimeError(
+                "ModelLifecycleMetrics result is unavailable before end()."
+            )
         return self._last_result

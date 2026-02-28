@@ -11,7 +11,9 @@ def main() -> None:
         "This is a longer sentence to test TTS performance."
     )
 
-    collector.start_trial(trial_id="debug_tts_1", sample_id="debug_tts_1", is_warmup=False)
+    collector.start_trial(
+        trial_id="debug_tts_1", sample_id="debug_tts_1", is_warmup=False
+    )
 
     try:
         waveform, output_sample_rate = run_tts(

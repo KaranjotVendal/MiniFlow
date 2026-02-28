@@ -4,13 +4,16 @@ from pydantic import BaseModel, Field, ValidationError
 
 from src.config.path_utils import resolve_path
 
+
 def _env() -> dict:
     """Load raw MiniFlow settings values from environment variables."""
     import os
 
     data = {
         "miniflow_config": os.getenv("MINIFLOW_CONFIG"),
-        "miniflow_request_timeout_seconds": os.getenv("MINIFLOW_REQUEST_TIMEOUT_SECONDS"),
+        "miniflow_request_timeout_seconds": os.getenv(
+            "MINIFLOW_REQUEST_TIMEOUT_SECONDS"
+        ),
         "miniflow_max_audio_upload_bytes": os.getenv("MINIFLOW_MAX_AUDIO_UPLOAD_BYTES"),
         "release_id": os.getenv("RELEASE_ID"),
     }
@@ -26,7 +29,9 @@ class AppSettings(BaseModel):
     @classmethod
     def from_env(cls) -> "AppSettings":
         raw_data = _env()
-        sanitized_raw = {key: value for key, value in raw_data.items() if value is not None}
+        sanitized_raw = {
+            key: value for key, value in raw_data.items() if value is not None
+        }
         try:
             return cls.model_validate(sanitized_raw)
         except ValidationError as exc:

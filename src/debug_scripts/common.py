@@ -39,6 +39,8 @@ def build_collector(
 ) -> tuple[dict, BenchmarkCollector, torch.device | str]:
     config = load_yaml_config(config_path)
     device = get_device()
-    metrics = build_metric_instances(metrics_config_path=metrics_config_path, device=device)
+    metrics = build_metric_instances(
+        metrics_config_path=metrics_config_path, device=device
+    )
     collector = BenchmarkCollector(metrics=metrics, config=config)
     return config, collector, device

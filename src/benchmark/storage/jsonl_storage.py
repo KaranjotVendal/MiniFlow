@@ -189,9 +189,7 @@ class JSONLStorage(BaseStorage):
         if errors:
             first_error = errors[0]
             path = ".".join(str(p) for p in first_error.path) or "<root>"
-            raise ValueError(
-                f"Invalid trial payload at {path}: {first_error.message}"
-            )
+            raise ValueError(f"Invalid trial payload at {path}: {first_error.message}")
 
     @classmethod
     def _validate_summary_payload(cls, payload: dict) -> None:

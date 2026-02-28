@@ -26,7 +26,9 @@ def _extract_metric_value(summary_dict: dict, *keys, default: float = 0.0) -> fl
     return default
 
 
-def _sweep_summary(sweep_name: str, sweep_folder: Path, sweep_results: list[dict]) -> None:
+def _sweep_summary(
+    sweep_name: str, sweep_folder: Path, sweep_results: list[dict]
+) -> None:
     # Build aggregated sweep summary
     sweep_summary = {
         "sweep_name": sweep_name,
@@ -50,14 +52,26 @@ def _sweep_summary(sweep_name: str, sweep_folder: Path, sweep_results: list[dict
             "experiment": exp_name,
             "run_id": result["run_id"],
             "num_trials": result["num_trials"],
-            "asr_latency_mean": _extract_metric_value(asr, "latency", "inference_seconds"),
-            "llm_latency_mean": _extract_metric_value(llm, "latency", "inference_seconds"),
-            "tts_latency_mean": _extract_metric_value(tts, "latency", "inference_seconds"),
-            "total_latency_mean": _extract_metric_value(pipeline, "latency", "trial_wall_time_seconds"),
-            "total_model_load_time_mean": _extract_metric_value(pipeline, "load_times", "total_model_load_time_seconds"),
+            "asr_latency_mean": _extract_metric_value(
+                asr, "latency", "inference_seconds"
+            ),
+            "llm_latency_mean": _extract_metric_value(
+                llm, "latency", "inference_seconds"
+            ),
+            "tts_latency_mean": _extract_metric_value(
+                tts, "latency", "inference_seconds"
+            ),
+            "total_latency_mean": _extract_metric_value(
+                pipeline, "latency", "trial_wall_time_seconds"
+            ),
+            "total_model_load_time_mean": _extract_metric_value(
+                pipeline, "load_times", "total_model_load_time_seconds"
+            ),
             "asr_wer_mean": _extract_metric_value(asr, "quality", "wer"),
             "tts_utmos_mean": _extract_metric_value(tts, "quality", "utmos"),
-            "llm_tokens_per_sec_mean": _extract_metric_value(llm, "inference", "tokens_per_sec"),
+            "llm_tokens_per_sec_mean": _extract_metric_value(
+                llm, "inference", "tokens_per_sec"
+            ),
             "llm_ttft_mean": _extract_metric_value(llm, "inference", "ttft_seconds"),
         }
 
@@ -101,7 +115,9 @@ def run_sweep(sweep_config_path: str | Path) -> None:
     sweep_list = config["sweep"]
     output_dir = Path(config.get("output_dir", "sweeps"))
 
-    sweep_folder = output_dir / f"{int(datetime.timestamp(datetime.now()))}_{sweep_name}"
+    sweep_folder = (
+        output_dir / f"{int(datetime.timestamp(datetime.now()))}_{sweep_name}"
+    )
     sweep_folder.mkdir(parents=True, exist_ok=True)
 
     # Save sweep config to output folder
@@ -142,7 +158,9 @@ def run_sweep(sweep_config_path: str | Path) -> None:
         )
 
     logger.info("Building sweep summary...")
-    _sweep_summary(sweep_name=sweep_name, sweep_folder=sweep_folder, sweep_results=sweep_results)
+    _sweep_summary(
+        sweep_name=sweep_name, sweep_folder=sweep_folder, sweep_results=sweep_results
+    )
 
 
 def main():
@@ -150,7 +168,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Run a parameter sweep.")
-    parser.add_argument("--config", type=str, required=True, help="Path to sweep config YAML")
+    parser.add_argument(
+        "--config", type=str, required=True, help="Path to sweep config YAML"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print config and exit")
     args = parser.parse_args()
 

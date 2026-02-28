@@ -12,9 +12,6 @@ from src.logger.logging import initialise_logger
 logger = initialise_logger(__name__)
 
 
-
-
-
 # =============================================================================
 # TRANSFORMERS 4.57.x COMPATIBILITY FIXES
 # =============================================================================
@@ -44,11 +41,11 @@ def _fix_dynamic_cache_format(cache):
         return cache
 
     # Check if it's already in the new format (transformers 4.57.x compatible)
-    if hasattr(cache, 'layers'):
+    if hasattr(cache, "layers"):
         return cache
 
     # Old format has key_cache and value_cache attributes (transformers 4.x)
-    if not (hasattr(cache, 'key_cache') and hasattr(cache, 'value_cache')):
+    if not (hasattr(cache, "key_cache") and hasattr(cache, "value_cache")):
         raise ValueError(f"Unknown cache format: {cache}")
 
     # Create a new DynamicCache in new format
@@ -83,7 +80,7 @@ def _fix_prefilled_outputs(all_prefilled_outputs):
     """
     fixed = {}
     for key, value in all_prefilled_outputs.items():
-        if hasattr(value, 'past_key_values') and value.past_key_values is not None:
+        if hasattr(value, "past_key_values") and value.past_key_values is not None:
             if isinstance(value.past_key_values, DynamicCache):
                 fixed_cache = _fix_dynamic_cache_format(value.past_key_values)
                 # Create new ModelOutput with fixed cache

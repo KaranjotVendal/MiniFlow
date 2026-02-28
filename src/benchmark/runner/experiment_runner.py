@@ -27,6 +27,7 @@ DEVICE = get_device()
 @dataclass
 class ExperimentSummary:
     """Structured benchmark summary metadata and payload."""
+
     experiment: str
     run_id: str
     num_trials: int
@@ -155,7 +156,7 @@ class ExperimentRunner:
                 config=self.config,
                 collector=collector,
                 run_id=self.output_dir.name,
-                device=self.device
+                device=self.device,
             )
             trial_metrics = collector.end_trial(status="success")
         except Exception as e:
@@ -194,7 +195,14 @@ class ExperimentRunner:
         n = len(sorted_values)
         if n == 0:
             return MetricStats(
-                mean=0.0, median=0.0, min=0.0, max=0.0, std=0.0, p95=0.0, p99=0.0, count=0
+                mean=0.0,
+                median=0.0,
+                min=0.0,
+                max=0.0,
+                std=0.0,
+                p95=0.0,
+                p99=0.0,
+                count=0,
             )
 
         mean_val = mean(values)
@@ -298,34 +306,91 @@ class ExperimentRunner:
         }
 
         for trial in main_trials:
-            add_numeric(["pipeline", "latency", "trial_wall_time_seconds"], trial.get("trial_wall_time_seconds"))
-            add_numeric(["pipeline", "latency", "total_latency_seconds"], trial.get("total_latency_seconds"))
-            add_numeric(["pipeline", "load_times", "total_model_load_time_seconds"], trial.get("total_model_load_time"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_allocated_mb"], trial.get("gpu_memory_allocated_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_reserved_mb"], trial.get("gpu_memory_reserved_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_peak_mb"], trial.get("gpu_memory_peak_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_efficiency"], trial.get("gpu_memory_efficiency"))
+            add_numeric(
+                ["pipeline", "latency", "trial_wall_time_seconds"],
+                trial.get("trial_wall_time_seconds"),
+            )
+            add_numeric(
+                ["pipeline", "latency", "total_latency_seconds"],
+                trial.get("total_latency_seconds"),
+            )
+            add_numeric(
+                ["pipeline", "load_times", "total_model_load_time_seconds"],
+                trial.get("total_model_load_time"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_allocated_mb"],
+                trial.get("gpu_memory_allocated_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_reserved_mb"],
+                trial.get("gpu_memory_reserved_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_peak_mb"],
+                trial.get("gpu_memory_peak_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_efficiency"],
+                trial.get("gpu_memory_efficiency"),
+            )
 
             stage_latencies = trial.get("latencies", {})
-            add_numeric(["asr", "latency", "inference_seconds"], stage_latencies.get("asr"))
-            add_numeric(["llm", "latency", "inference_seconds"], stage_latencies.get("llm"))
-            add_numeric(["tts", "latency", "inference_seconds"], stage_latencies.get("tts"))
+            add_numeric(
+                ["asr", "latency", "inference_seconds"], stage_latencies.get("asr")
+            )
+            add_numeric(
+                ["llm", "latency", "inference_seconds"], stage_latencies.get("llm")
+            )
+            add_numeric(
+                ["tts", "latency", "inference_seconds"], stage_latencies.get("tts")
+            )
 
-            add_numeric(["asr", "load_times", "model_load_seconds"], (trial.get("asr_model_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "model_load_seconds"], (trial.get("llm_model_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "tokenizer_load_seconds"], (trial.get("llm_tokenizer_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "pipeline_load_seconds"], (trial.get("llm_pipeline_load") or {}).get("total_time"))
-            add_numeric(["tts", "load_times", "model_load_seconds"], (trial.get("tts_model_load") or {}).get("total_time"))
-            add_numeric(["tts", "load_times", "processor_load_seconds"], (trial.get("tts_processor_load") or {}).get("total_time"))
+            add_numeric(
+                ["asr", "load_times", "model_load_seconds"],
+                (trial.get("asr_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "model_load_seconds"],
+                (trial.get("llm_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "tokenizer_load_seconds"],
+                (trial.get("llm_tokenizer_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "pipeline_load_seconds"],
+                (trial.get("llm_pipeline_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["tts", "load_times", "model_load_seconds"],
+                (trial.get("tts_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["tts", "load_times", "processor_load_seconds"],
+                (trial.get("tts_processor_load") or {}).get("total_time"),
+            )
 
-            add_numeric(["llm", "inference", "tokens_generated"], trial.get("tokens_generated"))
-            add_numeric(["llm", "inference", "tokens_per_sec"], trial.get("tokens_per_sec"))
-            add_numeric(["llm", "inference", "time_per_token_seconds"], trial.get("time_per_token"))
-            add_numeric(["llm", "inference", "total_generation_time_seconds"], trial.get("total_generation_time"))
+            add_numeric(
+                ["llm", "inference", "tokens_generated"], trial.get("tokens_generated")
+            )
+            add_numeric(
+                ["llm", "inference", "tokens_per_sec"], trial.get("tokens_per_sec")
+            )
+            add_numeric(
+                ["llm", "inference", "time_per_token_seconds"],
+                trial.get("time_per_token"),
+            )
+            add_numeric(
+                ["llm", "inference", "total_generation_time_seconds"],
+                trial.get("total_generation_time"),
+            )
             add_numeric(["llm", "inference", "ttft_seconds"], trial.get("ttft"))
             add_numeric(["llm", "inference", "cache_hits"], trial.get("cache_hits"))
             add_numeric(["llm", "inference", "cache_misses"], trial.get("cache_misses"))
-            add_numeric(["llm", "inference", "models_loaded"], trial.get("models_loaded"))
+            add_numeric(
+                ["llm", "inference", "models_loaded"], trial.get("models_loaded")
+            )
 
             add_numeric(["asr", "quality", "wer"], trial.get("wer"))
             add_numeric(["tts", "quality", "utmos"], trial.get("utmos"))
@@ -352,7 +417,9 @@ class ExperimentRunner:
                         )
 
         for path, values in numeric_series.items():
-            self._set_nested(summary_dict, list(path), self._compute_stats(values).to_dict())
+            self._set_nested(
+                summary_dict, list(path), self._compute_stats(values).to_dict()
+            )
 
         self._set_nested(
             summary_dict, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts
@@ -417,7 +484,9 @@ class ExperimentRunner:
         return summary
 
     @classmethod
-    def from_config(cls, config: dict, output_dir: Path = Path("Benchmark")) -> "ExperimentRunner":
+    def from_config(
+        cls, config: dict, output_dir: Path = Path("Benchmark")
+    ) -> "ExperimentRunner":
         """Create an ExperimentRunner from a configuration dictionary.
 
         This method parses the configuration, creates the appropriate metrics
@@ -447,7 +516,9 @@ class ExperimentRunner:
                 "Use inspect_config() before ExperimentRunner.from_config()."
             )
         if not metrics_config_path.exists():
-            logger.warning(f"Metrics config doesn't exist: {metrics_config_path}, stopping..")
+            logger.warning(
+                f"Metrics config doesn't exist: {metrics_config_path}, stopping.."
+            )
             raise FileNotFoundError(f"Metrics config not found: {metrics_config_path}")
 
         experiment_name = config["experiment"]["name"]
@@ -472,5 +543,5 @@ class ExperimentRunner:
             storage=storage,
             metrics=metrics,
             config=config,
-            device=DEVICE
+            device=DEVICE,
         )

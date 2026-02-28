@@ -48,9 +48,27 @@ def _valid_summary() -> dict:
             "inference": {},
             "quality": {},
         },
-        "asr": {"latency": {}, "hardware": {}, "load_times": {}, "inference": {}, "quality": {}},
-        "llm": {"latency": {}, "hardware": {}, "load_times": {}, "inference": {}, "quality": {}},
-        "tts": {"latency": {}, "hardware": {}, "load_times": {}, "inference": {}, "quality": {}},
+        "asr": {
+            "latency": {},
+            "hardware": {},
+            "load_times": {},
+            "inference": {},
+            "quality": {},
+        },
+        "llm": {
+            "latency": {},
+            "hardware": {},
+            "load_times": {},
+            "inference": {},
+            "quality": {},
+        },
+        "tts": {
+            "latency": {},
+            "hardware": {},
+            "load_times": {},
+            "inference": {},
+            "quality": {},
+        },
     }
 
 
