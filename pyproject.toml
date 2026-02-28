@@ -65,3 +65,43 @@ markers = [
     "integration: marks tests as integration tests (run with: pytest -m integration)",
 ]
 addopts = "-m 'not integration' --ignore=tests/integration_tests --ignore=vibevoice"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "ruff>=0.11.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes - basic error detection
+    "F",
+    # pycodestyle - PEP 8 errors
+    "E",
+    # Bugbear - common bug patterns
+    "B",
+    # isort - import sorting
+    "I",
+    # Comprehensions - simplify comprehensions
+    "C4",
+    # Pyupgrade - modern Python syntax
+    "UP",
+]
+ignore = [
+    # Line too long - formatter handles this
+    "E501",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "vibevoice"]
