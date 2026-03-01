@@ -1,12 +1,13 @@
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from src.report.plotting import (
     save_bar_plot,
-    save_line_plot,
     save_latency_percentiles_plot,
+    save_line_plot,
 )
+
 
 # TODO: needs to be refactored with newer benchmark framework
 def generate_experiment_report(exp_folder: str | Path):

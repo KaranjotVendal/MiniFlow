@@ -115,7 +115,7 @@ class JSONLStorage(BaseStorage):
 
         # Preferred format: strict JSONL (one JSON object per line).
         if "\n{" in raw_text or not raw_text.startswith("{"):
-            with open(self.raw_logs_path, "r") as f:
+            with open(self.raw_logs_path) as f:
                 for line in f:
                     line = line.strip()
                     if line:
@@ -140,7 +140,7 @@ class JSONLStorage(BaseStorage):
         if not self.summary_path.exists():
             return None
 
-        with open(self.summary_path, "r") as f:
+        with open(self.summary_path) as f:
             return json.load(f)
 
     def load_config(self) -> dict | None:
@@ -153,7 +153,7 @@ class JSONLStorage(BaseStorage):
         if not self.config_path.exists():
             return None
 
-        with open(self.config_path, "r") as f:
+        with open(self.config_path) as f:
             return json.load(f)
 
     def get_trial_count(self) -> int:
@@ -178,7 +178,7 @@ class JSONLStorage(BaseStorage):
         schema_path = cls.SCHEMAS_DIR / schema_filename
         if not schema_path.exists():
             raise FileNotFoundError(f"Schema not found: {schema_path}")
-        with open(schema_path, "r") as f:
+        with open(schema_path) as f:
             return json.load(f)
 
     @classmethod
@@ -189,9 +189,7 @@ class JSONLStorage(BaseStorage):
         if errors:
             first_error = errors[0]
             path = ".".join(str(p) for p in first_error.path) or "<root>"
-            raise ValueError(
-                f"Invalid trial payload at {path}: {first_error.message}"
-            )
+            raise ValueError(f"Invalid trial payload at {path}: {first_error.message}")
 
     @classmethod
     def _validate_summary_payload(cls, payload: dict) -> None:
@@ -201,6 +199,4 @@ class JSONLStorage(BaseStorage):
         if errors:
             first_error = errors[0]
             path = ".".join(str(p) for p in first_error.path) or "<root>"
-            raise ValueError(
-                f"Invalid summary payload at {path}: {first_error.message}"
-            )
+            raise ValueError(f"Invalid summary payload at {path}: {first_error.message}")

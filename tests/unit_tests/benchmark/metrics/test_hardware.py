@@ -39,7 +39,9 @@ def test_init_requires_device_key():
 def test_config_assignment():
     with patch("src.benchmark.metrics.hardware.nvitop.Device") as mock_device:
         mock_device.return_value = MagicMock()
-        metric = HardwareMetrics(_base_config(device=1, track_power=True, track_fragmentation=True, waste_threshold=0.5))
+        metric = HardwareMetrics(
+            _base_config(device=1, track_power=True, track_fragmentation=True, waste_threshold=0.5)
+        )
 
     assert metric.device_index == 1
     assert metric.track_power is True
@@ -64,7 +66,9 @@ def test_basic_mode_collects_memory_metrics():
                 with patch("torch.cuda.max_memory_allocated", return_value=mb * 15):
                     with patch("torch.cuda.reset_peak_memory_stats"):
                         with patch("torch.cuda.synchronize"):
-                            with patch("src.benchmark.metrics.hardware.nvitop.Device") as mock_device:
+                            with patch(
+                                "src.benchmark.metrics.hardware.nvitop.Device"
+                            ) as mock_device:
                                 mock_device.return_value = MagicMock()
                                 metric = HardwareMetrics(_base_config())
                                 metric.start(_context())
@@ -92,11 +96,11 @@ def test_detailed_mode_collects_fragmentation_metrics():
                     ):
                         with patch("torch.cuda.reset_peak_memory_stats"):
                             with patch("torch.cuda.synchronize"):
-                                with patch("src.benchmark.metrics.hardware.nvitop.Device") as mock_device:
+                                with patch(
+                                    "src.benchmark.metrics.hardware.nvitop.Device"
+                                ) as mock_device:
                                     mock_device.return_value = MagicMock()
-                                    metric = HardwareMetrics(
-                                        _base_config(track_fragmentation=True)
-                                    )
+                                    metric = HardwareMetrics(_base_config(track_fragmentation=True))
                                     metric.start(_context())
                                     results = metric.end(_context())
 

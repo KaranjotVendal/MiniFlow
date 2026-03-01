@@ -29,14 +29,11 @@ def stream_dataset_samples(
     logger.info("streaming samples GLOBE dataset ...")
 
     try:
-        dataset: IterableDataset = load_dataset(
-            "MushanW/GLOBE_V3", split=split, streaming=True
-        )
+        dataset: IterableDataset = load_dataset("MushanW/GLOBE_V3", split=split, streaming=True)
     except Exception as e:
         logger.warning(f"Error loading GLOBE dataset: {e}")
         raise
 
-    sample_accents = set()
     processed_samples = 0
     logger.info(f"filtering for English samples and extracting {num_samples} samples")
 
@@ -45,7 +42,7 @@ def stream_dataset_samples(
     #     lambda x: x["predicted_accent"] != "United States English"
     # )
 
-    for i, sample in enumerate(dataset):
+    for sample in dataset:
         if processed_samples >= num_samples:
             break
 
@@ -78,9 +75,7 @@ def stream_dataset_samples(
 
             yield audio_sample
             processed_samples += 1
-            logger.info(
-                f"yielded sample {processed_samples}: Accent: {audio_sample.accent}"
-            )
+            logger.info(f"yielded sample {processed_samples}: Accent: {audio_sample.accent}")
         except Exception as e:
             logger.warning(f"Error saving audio file: {e}")
             continue

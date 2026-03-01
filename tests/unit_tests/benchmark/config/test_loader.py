@@ -1,5 +1,5 @@
-import yaml
 import pytest
+import yaml
 
 from src.benchmark.config.loader import load_benchmark_config
 

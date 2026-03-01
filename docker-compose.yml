@@ -1,13 +1,29 @@
 services:
   api:
     environment:
+      # agree to Coqui TTS Terms
       - COQUI_TOS_AGREED=1
+      - MINIFLOW_CONFIG=configs/3_TTS-to-vibevoice.yml
+      # Generous timeout for cold-start end-to-end runs on constrained GPUs.
+      - MINIFLOW_REQUEST_TIMEOUT_SECONDS=900
+      # Device selection: "cuda" or "cpu". Set to "cpu" if CUDA has issues.
+      - MINIFLOW_DEVICE=${MINIFLOW_DEVICE:-cuda}
+      # TODO: Replace with CI/CD-generated immutable release identifier (git SHA/image tag).
+      - RELEASE_ID=prod-pseudo
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     command: uv run uvicorn src.app:app --host 0.0.0.0 --port 8000
+    # TODO: Optionally add Hugging Face cache persistence for production
+    # if node-local model cache reuse is desired.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         reservations:

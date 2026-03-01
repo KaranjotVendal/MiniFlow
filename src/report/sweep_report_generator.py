@@ -1,8 +1,8 @@
 # src/report/sweep_report_generator.py
 
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from src.report.plotting import save_bar_plot
 
@@ -26,7 +26,7 @@ def generate_sweep_report(sweep_folder: str | Path):
     total_latency_means = [e["total_latency_mean"] for e in experiments]
 
     save_bar_plot(
-        values=dict(zip(exp_names, total_latency_means)),
+        values=dict(zip(exp_names, total_latency_means, strict=False)),
         title="Total Latency Mean Across Experiments",
         ylabel="Latency (s)",
         output_path=plots_dir / "sweep_latency.png",

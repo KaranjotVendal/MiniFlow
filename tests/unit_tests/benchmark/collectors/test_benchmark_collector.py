@@ -118,12 +118,7 @@ class TestBenchmarkCollector:
                 config={"benchmark": {"enable_streaming_audio": False}},
             )
         collector.start_trial("trial_1")
-        collector.record_phase_metrics(
-            "asr_inference_gpu_metrics", {"gpu_memory_peak_mb": 123}
-        )
+        collector.record_phase_metrics("asr_inference_gpu_metrics", {"gpu_memory_peak_mb": 123})
         result = collector.end_trial(status="success")
         assert "hardware_phase_metrics" in result
-        assert (
-            result["hardware_phase_metrics"]["asr_inference"]["gpu_memory_peak_mb"]
-            == 123
-        )
+        assert result["hardware_phase_metrics"]["asr_inference"]["gpu_memory_peak_mb"] == 123

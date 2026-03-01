@@ -2,14 +2,13 @@ from pathlib import Path
 
 import torch
 
+# Import side effects: register all metric classes in MetricRegistry.
+import src.benchmark.metrics  # noqa: F401
 from src.benchmark.collectors import BenchmarkCollector
 from src.benchmark.core.base import BaseMetric
 from src.benchmark.core.registry import MetricRegistry
 from src.config.load_config import load_yaml_config
 from src.utils import get_device
-
-# Import side effects: register all metric classes in MetricRegistry.
-import src.benchmark.metrics  # noqa: F401
 
 
 def build_metric_instances(
