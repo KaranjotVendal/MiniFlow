@@ -1,4 +1,3 @@
-import pytest
 import time
 
 from src.benchmark.core.base import MetricContext, Stage
@@ -32,7 +31,6 @@ class TestModelLifecycleMetricsConfig:
 
 
 class TestModelLifecycleMetricsBasic:
-
     def test_record_load_start_end(self):
         """Test basic load start and end recording."""
         metric = ModelLifecycleMetrics()

@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
+
 import yaml
 
 from src.benchmark.runner.experiment_runner import ExperimentRunner
@@ -53,8 +54,12 @@ def _sweep_summary(sweep_name: str, sweep_folder: Path, sweep_results: list[dict
             "asr_latency_mean": _extract_metric_value(asr, "latency", "inference_seconds"),
             "llm_latency_mean": _extract_metric_value(llm, "latency", "inference_seconds"),
             "tts_latency_mean": _extract_metric_value(tts, "latency", "inference_seconds"),
-            "total_latency_mean": _extract_metric_value(pipeline, "latency", "trial_wall_time_seconds"),
-            "total_model_load_time_mean": _extract_metric_value(pipeline, "load_times", "total_model_load_time_seconds"),
+            "total_latency_mean": _extract_metric_value(
+                pipeline, "latency", "trial_wall_time_seconds"
+            ),
+            "total_model_load_time_mean": _extract_metric_value(
+                pipeline, "load_times", "total_model_load_time_seconds"
+            ),
             "asr_wer_mean": _extract_metric_value(asr, "quality", "wer"),
             "tts_utmos_mean": _extract_metric_value(tts, "quality", "utmos"),
             "llm_tokens_per_sec_mean": _extract_metric_value(llm, "inference", "tokens_per_sec"),

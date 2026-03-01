@@ -12,6 +12,7 @@ os.environ.setdefault("RELEASE_ID", "test-release")
 
 import src.app as app_mod
 
+
 # NOTE: TestClient is synchronous, but our FastAPI app is asynchronous.
 # TestClient handles this automatically by running the async code in an event loop internally.
 def _wav_bytes(sample_rate: int = 16000, seconds: float = 1.0) -> bytes:
@@ -48,7 +49,15 @@ def test_s2s_success_contract(monkeypatch):
     )
     assert response.status_code == 200
     payload = response.json()
-    for key in ("transcript", "response", "audio", "sample_rate", "request_id", "latency_ms", "release_id"):
+    for key in (
+        "transcript",
+        "response",
+        "audio",
+        "sample_rate",
+        "request_id",
+        "latency_ms",
+        "release_id",
+    ):
         assert key in payload
 
 

@@ -1,8 +1,8 @@
 import argparse
 from pathlib import Path
 
-from src.config.inspect_config import inspect_config
 from src.benchmark.runner.experiment_runner import ExperimentRunner
+from src.config.inspect_config import inspect_config
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
@@ -11,9 +11,7 @@ logger = initialise_logger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Run an experiment from yaml config.")
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument(
-        "--dry-run", action="store_true", help="when enabled only prints config"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="when enabled only prints config")
     args = parser.parse_args()
 
     config_path = Path(args.config)

@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 
 from src.benchmark.core.base import MetricContext, Stage
 from src.benchmark.core.registry import MetricRegistry

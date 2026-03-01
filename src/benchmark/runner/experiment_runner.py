@@ -6,18 +6,17 @@ from typing import Any
 
 import torch
 
-from src.benchmark.storage import BaseStorage
-from src.benchmark.core.base import BaseMetric
 from src.benchmark.collectors import BenchmarkCollector
+from src.benchmark.core.base import BaseMetric
 from src.benchmark.core.registry import MetricRegistry
 from src.benchmark.runner.summary_models import MetricStats, SummaryRecord
+from src.benchmark.storage import BaseStorage
 from src.benchmark.storage.jsonl_storage import JSONLStorage
 from src.config.load_config import load_yaml_config
-from src.sts_pipeline import process_sample
-from src.utils import clear_gpu_cache
-from src.prepare_data import stream_dataset_samples, AudioSample
-from src.utils import get_device
 from src.logger.logging import initialise_logger
+from src.prepare_data import AudioSample, stream_dataset_samples
+from src.sts_pipeline import process_sample
+from src.utils import clear_gpu_cache, get_device
 
 logger = initialise_logger(__name__)
 
@@ -27,6 +26,7 @@ DEVICE = get_device()
 @dataclass
 class ExperimentSummary:
     """Structured benchmark summary metadata and payload."""
+
     experiment: str
     run_id: str
     num_trials: int
@@ -123,9 +123,7 @@ class ExperimentRunner:
 
         return metrics
 
-    def _run_trial(
-        self, sample: AudioSample, trial_id: str, is_warmup: bool = False
-    ) -> None:
+    def _run_trial(self, sample: AudioSample, trial_id: str, is_warmup: bool = False) -> None:
         """Execute a single trial with metric collection.
 
         This method:
@@ -155,7 +153,7 @@ class ExperimentRunner:
                 config=self.config,
                 collector=collector,
                 run_id=self.output_dir.name,
-                device=self.device
+                device=self.device,
             )
             trial_metrics = collector.end_trial(status="success")
         except Exception as e:
@@ -203,15 +201,9 @@ class ExperimentRunner:
             median=round(median(values), 6),
             min=round(min(values), 6),
             max=round(max(values), 6),
-            std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6)
-            if n > 1
-            else 0.0,
-            p95=round(sorted_values[int(0.95 * n)], 6)
-            if n >= 20
-            else round(sorted_values[-1], 6),
-            p99=round(sorted_values[int(0.99 * n)], 6)
-            if n >= 100
-            else round(sorted_values[-1], 6),
+            std=round((sum((x - mean_val) ** 2 for x in values) / n) ** 0.5, 6) if n > 1 else 0.0,
+            p95=round(sorted_values[int(0.95 * n)], 6) if n >= 20 else round(sorted_values[-1], 6),
+            p99=round(sorted_values[int(0.99 * n)], 6) if n >= 100 else round(sorted_values[-1], 6),
             count=n,
         )
 
@@ -298,30 +290,71 @@ class ExperimentRunner:
         }
 
         for trial in main_trials:
-            add_numeric(["pipeline", "latency", "trial_wall_time_seconds"], trial.get("trial_wall_time_seconds"))
-            add_numeric(["pipeline", "latency", "total_latency_seconds"], trial.get("total_latency_seconds"))
-            add_numeric(["pipeline", "load_times", "total_model_load_time_seconds"], trial.get("total_model_load_time"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_allocated_mb"], trial.get("gpu_memory_allocated_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_reserved_mb"], trial.get("gpu_memory_reserved_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_peak_mb"], trial.get("gpu_memory_peak_mb"))
-            add_numeric(["pipeline", "hardware", "trial", "gpu_memory_efficiency"], trial.get("gpu_memory_efficiency"))
+            add_numeric(
+                ["pipeline", "latency", "trial_wall_time_seconds"],
+                trial.get("trial_wall_time_seconds"),
+            )
+            add_numeric(
+                ["pipeline", "latency", "total_latency_seconds"], trial.get("total_latency_seconds")
+            )
+            add_numeric(
+                ["pipeline", "load_times", "total_model_load_time_seconds"],
+                trial.get("total_model_load_time"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_allocated_mb"],
+                trial.get("gpu_memory_allocated_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_reserved_mb"],
+                trial.get("gpu_memory_reserved_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_peak_mb"],
+                trial.get("gpu_memory_peak_mb"),
+            )
+            add_numeric(
+                ["pipeline", "hardware", "trial", "gpu_memory_efficiency"],
+                trial.get("gpu_memory_efficiency"),
+            )
 
             stage_latencies = trial.get("latencies", {})
             add_numeric(["asr", "latency", "inference_seconds"], stage_latencies.get("asr"))
             add_numeric(["llm", "latency", "inference_seconds"], stage_latencies.get("llm"))
             add_numeric(["tts", "latency", "inference_seconds"], stage_latencies.get("tts"))
 
-            add_numeric(["asr", "load_times", "model_load_seconds"], (trial.get("asr_model_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "model_load_seconds"], (trial.get("llm_model_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "tokenizer_load_seconds"], (trial.get("llm_tokenizer_load") or {}).get("total_time"))
-            add_numeric(["llm", "load_times", "pipeline_load_seconds"], (trial.get("llm_pipeline_load") or {}).get("total_time"))
-            add_numeric(["tts", "load_times", "model_load_seconds"], (trial.get("tts_model_load") or {}).get("total_time"))
-            add_numeric(["tts", "load_times", "processor_load_seconds"], (trial.get("tts_processor_load") or {}).get("total_time"))
+            add_numeric(
+                ["asr", "load_times", "model_load_seconds"],
+                (trial.get("asr_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "model_load_seconds"],
+                (trial.get("llm_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "tokenizer_load_seconds"],
+                (trial.get("llm_tokenizer_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["llm", "load_times", "pipeline_load_seconds"],
+                (trial.get("llm_pipeline_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["tts", "load_times", "model_load_seconds"],
+                (trial.get("tts_model_load") or {}).get("total_time"),
+            )
+            add_numeric(
+                ["tts", "load_times", "processor_load_seconds"],
+                (trial.get("tts_processor_load") or {}).get("total_time"),
+            )
 
             add_numeric(["llm", "inference", "tokens_generated"], trial.get("tokens_generated"))
             add_numeric(["llm", "inference", "tokens_per_sec"], trial.get("tokens_per_sec"))
             add_numeric(["llm", "inference", "time_per_token_seconds"], trial.get("time_per_token"))
-            add_numeric(["llm", "inference", "total_generation_time_seconds"], trial.get("total_generation_time"))
+            add_numeric(
+                ["llm", "inference", "total_generation_time_seconds"],
+                trial.get("total_generation_time"),
+            )
             add_numeric(["llm", "inference", "ttft_seconds"], trial.get("ttft"))
             add_numeric(["llm", "inference", "cache_hits"], trial.get("cache_hits"))
             add_numeric(["llm", "inference", "cache_misses"], trial.get("cache_misses"))
@@ -354,9 +387,7 @@ class ExperimentRunner:
         for path, values in numeric_series.items():
             self._set_nested(summary_dict, list(path), self._compute_stats(values).to_dict())
 
-        self._set_nested(
-            summary_dict, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts
-        )
+        self._set_nested(summary_dict, ["llm", "inference", "ttft_mode_counts"], ttft_mode_counts)
         return SummaryRecord.from_dict(summary_dict)
 
     def _run_benchmark_samples(self, num_samples: int, split: str) -> None:
@@ -472,5 +503,5 @@ class ExperimentRunner:
             storage=storage,
             metrics=metrics,
             config=config,
-            device=DEVICE
+            device=DEVICE,
         )

@@ -1,11 +1,10 @@
-import pytest
 
 from src.benchmark.config.defaults import (
-    get_default_metrics_config,
     get_default_hardware_config,
+    get_default_metrics_config,
+    get_default_quality_config,
     get_default_timing_config,
     get_default_tokens_config,
-    get_default_quality_config,
 )
 
 

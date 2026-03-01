@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 import torch
 from TTS.api import TTS
 
-from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
+from src.utils import clear_gpu_cache
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -26,7 +26,8 @@ def run_xtts(
     # load model
     collector.hardware_metrics.start(collector.context)
     collector.lifecycle_metrics.record_load_start(
-        model_name=config["model_name"],source="remote(HF)")
+        model_name=config["model_name"], source="remote(HF)"
+    )
 
     model = TTS(config["model_id"]).to(device)
 
@@ -57,10 +58,10 @@ def run_xtts(
 
     # quality metric
     output_sampling_rate: int = model.synthesizer.output_sample_rate
-    utmos_score: dict[str, float] = collector.quality_metrics.evaluate(evaluator="utmos",
-        prediction=waveform, output_sample_rate=output_sampling_rate)
+    utmos_score: dict[str, float] = collector.quality_metrics.evaluate(
+        evaluator="utmos", prediction=waveform, output_sample_rate=output_sampling_rate
+    )
     collector.current_trial.quality.utmos = utmos_score["utmos"]
-
 
     del model
     clear_gpu_cache()

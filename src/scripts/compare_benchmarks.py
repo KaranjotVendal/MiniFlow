@@ -21,12 +21,14 @@ Usage:
 import argparse
 import json
 import sys
-import yaml
 from pathlib import Path
+
+import yaml
 
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)
+
 
 # TODO: refactor w.r.t new benhcmark framwork
 def parse_config(config_path: Path) -> dict[str, str]:
@@ -58,7 +60,7 @@ def compute_memory_stats(logs_path: Path) -> dict[str, float]:
         "tts_peak_mean": 0.0,
         "max_asr": 0.0,
         "max_llm": 0.0,
-        "max_tts": 0.0
+        "max_tts": 0.0,
     }
 
     asr_peaks = []
@@ -76,9 +78,15 @@ def compute_memory_stats(logs_path: Path) -> dict[str, float]:
             llm_peaks.append(record["llm_gpu_peak_mem"])
             tts_peaks.append(record["tts_gpu_peak_mem"])
 
-            max_asr = record["asr_gpu_peak_mem"] if max_asr < record["asr_gpu_peak_mem"] else max_asr
-            max_llm = record["llm_gpu_peak_mem"] if max_llm < record["llm_gpu_peak_mem"] else max_llm
-            max_tts = record["tts_gpu_peak_mem"] if max_tts < record["tts_gpu_peak_mem"] else max_tts
+            max_asr = (
+                record["asr_gpu_peak_mem"] if max_asr < record["asr_gpu_peak_mem"] else max_asr
+            )
+            max_llm = (
+                record["llm_gpu_peak_mem"] if max_llm < record["llm_gpu_peak_mem"] else max_llm
+            )
+            max_tts = (
+                record["tts_gpu_peak_mem"] if max_tts < record["tts_gpu_peak_mem"] else max_tts
+            )
 
     if asr_peaks:
         stats["asr_peak_mean"] = sum(asr_peaks) / len(asr_peaks)
@@ -154,9 +162,7 @@ def compare_two(
     lines.append("## Latency (mean, seconds)")
     lines.append("")
     lines.append("| Metric        | " + f"{name1} | {name2} | Change |")
-    lines.append(
-        "|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |"
-    )
+    lines.append("|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |")
 
     metrics = [
         ("asr_latency", "ASR Latency"),
@@ -179,9 +185,7 @@ def compare_two(
     lines.append("## Latency Percentiles (p95, seconds)")
     lines.append("")
     lines.append("| Metric        | " + f"{name1} | {name2} | Change |")
-    lines.append(
-        "|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |"
-    )
+    lines.append("|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |")
 
     for key, label in metrics:
         baseline_val = data1.get(key, {}).get("p95", 0)
@@ -197,9 +201,7 @@ def compare_two(
     lines.append("## Latency Percentiles (p99, seconds)")
     lines.append("")
     lines.append("| Metric        | " + f"{name1} | {name2} | Change |")
-    lines.append(
-        "|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |"
-    )
+    lines.append("|---------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |")
 
     for key, label in metrics:
         baseline_val = data1.get(key, {}).get("p99", 0)
@@ -215,9 +217,7 @@ def compare_two(
     lines.append("## Memory (peak, MB) - computed from raw_logs.jsonl")
     lines.append("")
     lines.append("| Metric         | " + f"{name1} | {name2} | Change |")
-    lines.append(
-        "|----------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |"
-    )
+    lines.append("|----------------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |")
 
     mem_metrics = [
         ("asr_peak_mean", "ASR Peak Mem"),
@@ -226,7 +226,6 @@ def compare_two(
         ("max_asr", "Max ASR"),
         ("max_llm", "Max LLM"),
         ("max_tts", "Max TTS"),
-
     ]
 
     for key, label in mem_metrics:
@@ -243,9 +242,7 @@ def compare_two(
     lines.append("## Quality Metrics")
     lines.append("")
     lines.append("| Metric   | " + f"{name1} | {name2} | Change |")
-    lines.append(
-        "|----------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |"
-    )
+    lines.append("|----------|" + f" {'-' * len(name1)} | {'-' * len(name2)} | -------- |")
 
     qual_metrics = [
         ("asr_wer_mean", "ASR WER"),
@@ -296,12 +293,8 @@ def compare_multiple(
     ]
 
     for key, label in metrics:
-        values = [
-            format_seconds(b["data"].get(key, {}).get("mean", 0)) for b in benchmarks
-        ]
-        lines.append(
-            f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |"
-        )
+        values = [format_seconds(b["data"].get(key, {}).get("mean", 0)) for b in benchmarks]
+        lines.append(f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |")
 
     lines.append("")
 
@@ -312,12 +305,8 @@ def compare_multiple(
     lines.append(separator)
 
     for key, label in metrics:
-        values = [
-            format_seconds(b["data"].get(key, {}).get("p95", 0)) for b in benchmarks
-        ]
-        lines.append(
-            f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |"
-        )
+        values = [format_seconds(b["data"].get(key, {}).get("p95", 0)) for b in benchmarks]
+        lines.append(f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |")
 
     lines.append("")
 
@@ -328,12 +317,8 @@ def compare_multiple(
     lines.append(separator)
 
     for key, label in metrics:
-        values = [
-            format_seconds(b["data"].get(key, {}).get("p99", 0)) for b in benchmarks
-        ]
-        lines.append(
-            f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |"
-        )
+        values = [format_seconds(b["data"].get(key, {}).get("p99", 0)) for b in benchmarks]
+        lines.append(f"| {label:<13} | " + " | ".join(f"{v:<20}" for v in values) + " |")
 
     lines.append("")
 
@@ -352,9 +337,7 @@ def compare_multiple(
 
     for key, label in mem_metrics:
         values = [format_mb(b["mem"].get(key, 0)) for b in benchmarks]
-        lines.append(
-            f"| {label:<14} | " + " | ".join(f"{v:<20}" for v in values) + " |"
-        )
+        lines.append(f"| {label:<14} | " + " | ".join(f"{v:<20}" for v in values) + " |")
 
     lines.append("")
 
