@@ -176,7 +176,7 @@ def wait_for_ready(remaining_timeout: float, interval_seconds: float = 2.0) -> N
 
     logs_output = run(compose_cmd("logs", "--tail=200", "api"), capture=True).stdout
     raise RuntimeError(
-        f"/ready did not become ready within {timeout_seconds} seconds. "
+        f"/ready did not become ready within {remaining_timeout:.1f} seconds. "
         f"Last error: {last_error}\n\n"
         f"docker compose logs:\n{logs_output}"
     )
