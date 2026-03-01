@@ -21,4 +21,4 @@ src/.ipynb_checkpoints/
 
 *.log
 *.wav
-docs/deploy.md
+docs/*
