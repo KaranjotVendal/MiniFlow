@@ -1,4 +1,3 @@
-
 from src.benchmark.config.defaults import (
     get_default_hardware_config,
     get_default_metrics_config,

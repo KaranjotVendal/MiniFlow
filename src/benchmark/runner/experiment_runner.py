@@ -272,7 +272,7 @@ class ExperimentRunner:
         ttft_mode_counts: dict[str, int] = {}
 
         def add_numeric(path: list[str], value: Any) -> None:
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, int | float):
                 return
             key = tuple(path)
             numeric_series.setdefault(key, []).append(float(value))

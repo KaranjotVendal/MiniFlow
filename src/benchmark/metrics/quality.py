@@ -110,7 +110,7 @@ class UTMOSEvaluator(BaseEvaluator):
 
             utmos = utmosv2.create_model(pretrained=True)
             result = utmos.predict(input_path=str(temp_path))
-            mos = result if isinstance(result, (int, float)) else 0.0
+            mos = result if isinstance(result, int | float) else 0.0
 
         return round(float(mos), 2)
 

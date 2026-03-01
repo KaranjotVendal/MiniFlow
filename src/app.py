@@ -31,6 +31,7 @@ from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 from src.prepare_data import AudioSample
 from src.sts_pipeline import process_sample
+from src.utils import get_device
 
 logger = initialise_logger(__name__)
 
@@ -153,12 +154,10 @@ def readiness_check():
             status_code=503,
         )
 
-    cuda_available = torch.cuda.is_available()
-
     return {
         "status": "ready",
-        "cuda_available": cuda_available,
-        "device": "cuda" if cuda_available else "cpu",
+        "cuda_available": torch.cuda.is_available(),
+        "device": get_device(),
     }
 
 
@@ -251,9 +250,6 @@ async def speech_to_speech(audio_file: UploadFile):
             sampling_rate=sampling_rate,
         )
 
-        # Get device
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
         # Process sample (collector=None for production mode - lightweight telemetry)
         result = await asyncio.wait_for(
             asyncio.to_thread(
@@ -263,7 +259,7 @@ async def speech_to_speech(audio_file: UploadFile):
                 run_id=request_id,
                 # Production mode - no benchmark collection
                 collector=None,
-                device=device,
+                device=get_device(),
                 history=None,
                 stream_audio=False,
             ),

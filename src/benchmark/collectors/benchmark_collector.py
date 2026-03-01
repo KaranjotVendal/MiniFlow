@@ -77,7 +77,7 @@ class BenchmarkCollector:
             return
 
         total_time = token_record.total_generation_time
-        has_total_time = isinstance(total_time, (int, float))
+        has_total_time = isinstance(total_time, int | float)
         has_positive_total_time = has_total_time and total_time > 0
 
         if token_record.ttft is None and has_total_time:
@@ -106,7 +106,6 @@ class BenchmarkCollector:
         self.trial_hardware_metrics.start(self._trial_context)
 
     def _finalize_trial_status(self, status: str, error: str | None) -> None:
-
         end_time = time.perf_counter()
         self._current_trial.status = status
         self._current_trial.error = error

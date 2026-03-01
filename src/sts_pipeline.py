@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-import sounddevice as sd
 import torch
 from numpy.typing import NDArray
 
@@ -16,6 +15,24 @@ if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
 
 logger = initialise_logger(__name__)
+
+
+def get_device(preferred: str = "cuda") -> torch.device:
+    """Get torch device with automatic CPU fallback on CUDA errors."""
+    if preferred != "cuda":
+        return torch.device(preferred)
+
+    if not torch.cuda.is_available():
+        logger.warning("CUDA not available, falling back to CPU")
+        return torch.device("cpu")
+
+    try:
+        # Test CUDA with a simple operation
+        _ = torch.randn(1, device="cuda") @ torch.randn(1, device="cuda").T
+        return torch.device("cuda")
+    except Exception as e:
+        logger.warning(f"CUDA initialization failed ({e}), falling back to CPU")
+        return torch.device("cpu")
 
 
 class _NoOpMetric:
@@ -138,10 +155,15 @@ def process_sample(
 
     # optionally stream the generated audio
     if stream_audio:
-        print("Playing audio now...")
-        sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
-        sd.wait()  # Block until playback finishes
-        print("Playback complete.")
+        import sounddevice as sd
+
+        try:
+            print("Playing audio now...")
+            sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
+            sd.wait()  # Block until playback finishes
+            print("Playback complete.")
+        except Exception as e:
+            logger.warning(f"Audio playback failed: {e}")
 
     processed_sample = ProcessedSample(
         groundtruth=sample.transcript,

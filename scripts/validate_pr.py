@@ -95,15 +95,18 @@ def _read_json_endpoint(path: str) -> dict:
         return payload
 
 
-def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> None:
-    """Poll /health until ready or timeout with robust transient-error handling."""
+def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> float:
+    """Poll /health until ready or timeout with robust transient-error handling.
+
+    Returns the remaining timeout seconds for use by subsequent checks.
+    """
     deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
 
     while time.time() < deadline:
         try:
             _check_endpoint_ok("/health")
-            return
+            return max(0, deadline - time.time())
         except (
             URLError,
             HTTPError,
@@ -132,9 +135,12 @@ def wait_for_health(timeout_seconds: int = 300, interval_seconds: float = 2.0) -
     )
 
 
-def wait_for_ready(timeout_seconds: int = 300, interval_seconds: float = 2.0) -> None:
-    """Poll /ready until ready or timeout with robust transient-error handling."""
-    deadline = time.time() + timeout_seconds
+def wait_for_ready(remaining_timeout: float, interval_seconds: float = 2.0) -> None:
+    """Poll /ready until ready or timeout with robust transient-error handling.
+
+    Uses remaining_timeout to ensure total wait time doesn't exceed original budget.
+    """
+    deadline = time.time() + remaining_timeout
     last_error: Exception | None = None
 
     while time.time() < deadline:
@@ -170,7 +176,7 @@ def wait_for_ready(timeout_seconds: int = 300, interval_seconds: float = 2.0) ->
 
     logs_output = run(compose_cmd("logs", "--tail=200", "api"), capture=True).stdout
     raise RuntimeError(
-        f"/ready did not become ready within {timeout_seconds} seconds. "
+        f"/ready did not become ready within {remaining_timeout:.1f} seconds. "
         f"Last error: {last_error}\n\n"
         f"docker compose logs:\n{logs_output}"
     )
@@ -268,12 +274,49 @@ def main() -> int:
         run(compose_cmd("up", "-d", "api"))
 
         print("[5/5] Checking /health...")
-        wait_for_health(timeout_seconds=args.startup_timeout_seconds)
+        remaining_timeout = wait_for_health(timeout_seconds=args.startup_timeout_seconds)
         print("Container health check passed.")
 
         print("Checking /ready...")
-        wait_for_ready(timeout_seconds=args.startup_timeout_seconds)
+        wait_for_ready(remaining_timeout=remaining_timeout)
         print("Container readiness check passed.")
+
+        # Safety check: verify CUDA works inside container before /s2s test
+        print("Verifying CUDA functionality...")
+        try:
+            result = run(
+                [
+                    "curl",
+                    "-fsS",
+                    "-X",
+                    "GET",
+                    f"{API_URL}/ready",
+                ],
+                capture=True,
+            )
+            import json
+            ready_info = json.loads(result.stdout)
+            if ready_info.get("device") != "cuda":
+                raise RuntimeError(
+                    f"CUDA not available or disabled. Device: {ready_info.get('device')}. "
+                    "Set MINIFLOW_DEVICE=cpu or fix CUDA issues."
+                )
+            # Additional CUDA sanity check - run a simple tensor operation
+            run(
+                [
+                    "docker", "exec", "miniflow-pr-validate-api-1",
+                    "/app/.venv/bin/python", "-c",
+                    "import torch; x = torch.randn(2,2).cuda(); y = x @ x.T; print('CUDA OK')"
+                ],
+                capture=True,
+            )
+            print("CUDA functionality verified.")
+        except Exception as e:
+            raise RuntimeError(
+                f"CUDA safety check failed: {e}\n"
+                "The /s2s endpoint requires working CUDA. "
+                "Either fix CUDA issues or use --skip-e2e flag."
+            )
 
         if args.skip_e2e:
             print("Skipping /s2s end-to-end check (--skip-e2e).")
