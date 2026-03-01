@@ -29,7 +29,6 @@ def run_asr(
     audio = {"array": audio_tensor.squeeze().numpy(), "sampling_rate": sampling_rate}
 
     # Try with requested device first, fall back to CPU on CUDA errors
-    current_device = device
     cuda_failed = False
 
     try:
@@ -43,7 +42,7 @@ def run_asr(
         pipe = pipeline(
             "automatic-speech-recognition",
             model=config["model_id"],
-            device=current_device,
+            device=device,
             return_timestamps=False,
             generate_kwargs={
                 "language": "en",
@@ -70,7 +69,7 @@ def run_asr(
             pred = pipe(audio)
         except RuntimeError as e:
             # Check if it's a CUDA error and we haven't tried CPU yet
-            if "CUDA" in str(e) and current_device != "cpu" and not cuda_failed:
+            if "CUDA" in str(e) and device != "cpu" and not cuda_failed:
                 logger.warning(f"CUDA error in ASR inference: {e}. Retrying with CPU.")
                 cuda_failed = True
                 # Recreate pipeline on CPU
@@ -92,7 +91,7 @@ def run_asr(
                     "sampling_rate": sampling_rate,
                 }
                 pred = pipe(audio)
-                current_device = "cpu"
+                device = "cpu"
             else:
                 raise
         collector.timing_metrics.record_stage_end("asr_inference_latency")
