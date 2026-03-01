@@ -16,7 +16,8 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-
+    outputs:
+      image_sha_tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,3 +61,60 @@ jobs:
         with:
           name: release-metadata
           path: artifacts/release-metadata.txt
+
+  smoke-test-published:
+    name: Smoke Test Published Image
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and test image
+        run: |
+          # Extract SHA tag from metadata output
+          SHA_TAG=$(echo '${{ needs.build-and-publish.outputs.image_sha_tag }}' | grep -o 'sha-[a-f0-9]*' | head -1)
+          IMAGE="ghcr.io/${{ github.repository_owner }}/miniflow:${SHA_TAG}"
+          
+          echo "Testing image: ${IMAGE}"
+          docker pull ${IMAGE}
+          
+          # Run container with CPU mode for testing
+          docker run -d \
+            --name miniflow-smoke-test \
+            -p 8000:8000 \
+            -e MINIFLOW_DEVICE=cpu \
+            -e COQUI_TOS_AGREED=1 \
+            ${IMAGE}
+          
+          # Wait for startup
+          echo "Waiting for container to start..."
+          sleep 45
+          
+          # Test health endpoint
+          echo "Testing /health..."
+          curl -f --max-time 10 http://localhost:8000/health || {
+            echo "Health check failed! Container logs:"
+            docker logs miniflow-smoke-test
+            exit 1
+          }
+          
+          # Test readiness endpoint
+          echo "Testing /ready..."
+          curl -f --max-time 10 http://localhost:8000/ready || {
+            echo "Readiness check failed! Container logs:"
+            docker logs miniflow-smoke-test
+            exit 1
+          }
+          
+          echo "All smoke tests passed!"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop miniflow-smoke-test || true
+          docker rm miniflow-smoke-test || true
