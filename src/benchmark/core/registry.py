@@ -1,4 +1,4 @@
-from typing import Callable, Type
+from collections.abc import Callable
 
 from src.benchmark.core.base import BaseMetric
 from src.logger.logging import initialise_logger
@@ -17,7 +17,7 @@ class MetricRegistry:
         _metrics: Dictionary mapping metric names to their classes.
     """
 
-    _metrics: dict[str, Type[BaseMetric]] = {}
+    _metrics: dict[str, type[BaseMetric]] = {}
 
     @classmethod
     def register(cls, name: str) -> Callable:
@@ -37,9 +37,8 @@ class MetricRegistry:
             ```
         """
 
-        def decorator(metric_class: Type[BaseMetric]) -> Type[BaseMetric]:
+        def decorator(metric_class: type[BaseMetric]) -> type[BaseMetric]:
             if name in cls._metrics:
-
                 logger.warning(f"Metric '{name}' is already registered. Overwriting.")
             cls._metrics[name] = metric_class
             return metric_class
@@ -47,7 +46,7 @@ class MetricRegistry:
         return decorator
 
     @classmethod
-    def get(cls, name: str) -> Type[BaseMetric]:
+    def get(cls, name: str) -> type[BaseMetric]:
         """Retrieve a registered metric class by name.
 
         Args:

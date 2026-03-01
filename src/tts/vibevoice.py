@@ -1,13 +1,15 @@
-from typing import TYPE_CHECKING
 import copy
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import torch
 
-from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
 from src.tts.vibevoice_compatibility_utils import _fix_prefilled_outputs
-from vibevoice.modular.modeling_vibevoice_streaming_inference import VibeVoiceStreamingForConditionalGenerationInference
+from src.utils import clear_gpu_cache
+from vibevoice.modular.modeling_vibevoice_streaming_inference import (
+    VibeVoiceStreamingForConditionalGenerationInference,
+)
 from vibevoice.processor.vibevoice_streaming_processor import VibeVoiceStreamingProcessor
 
 if TYPE_CHECKING:
@@ -24,7 +26,7 @@ def _torch_compatibility_fix(model) -> None:
     # This line is needed because transformers 4.57.x requires num_hidden_layers
     # but VibeVoiceStreamingConfig (originally for 4.x) doesn't expose it.
     # See: VIBEVOICE_FIXES_README.md
-    if not hasattr(model.config, 'num_hidden_layers'):
+    if not hasattr(model.config, "num_hidden_layers"):
         model.config.num_hidden_layers = model.config.decoder_config.num_hidden_layers
 
 
@@ -43,6 +45,7 @@ def _device_attn_implementation(device: torch.device | str) -> tuple[str, torch.
         attn_impl = "sdpa"
 
     return device_str, load_dtype, attn_impl
+
 
 def _handle_speaker_voice(config: dict, device_str: str) -> dict:
     # Speaker handling - use config-based path or default
@@ -70,10 +73,8 @@ def _handle_speaker_voice(config: dict, device_str: str) -> dict:
     return all_prefilled_outputs
 
 
-def run_vibevoice(config: dict,
-    llm_response: str,
-    device: str | torch.device,
-    collector: "BenchmarkCollector"
+def run_vibevoice(
+    config: dict, llm_response: str, device: str | torch.device, collector: "BenchmarkCollector"
 ) -> tuple[torch.Tensor, int]:
     """Run VibeVoice realtime TTS model.
 
@@ -229,9 +230,7 @@ def run_vibevoice(config: dict,
         )
         collector.current_trial.quality.utmos = utmos_score["utmos"]
 
-        logger.info(
-            f"VibeVoice: Generated {len(tts_waveform)/out_sample_rate:.2f}s of audio"
-        )
+        logger.info(f"VibeVoice: Generated {len(tts_waveform) / out_sample_rate:.2f}s of audio")
         return tts_waveform, out_sample_rate
     finally:
         if inputs is not None:

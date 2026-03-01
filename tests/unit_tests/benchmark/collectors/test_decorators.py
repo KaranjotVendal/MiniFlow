@@ -1,7 +1,6 @@
 """Unit tests for decorator metric collectors."""
 
 import time
-from typing import Any
 
 import pytest
 import torch
@@ -32,7 +31,7 @@ class TestTrackLatencyDecorator:
         def slow_function():
             time.sleep(0.01)
 
-        result = slow_function()
+        slow_function()
 
         assert "inference_latency_seconds" in slow_function.metrics
         assert slow_function.metrics["inference_latency_seconds"] >= 0.01
@@ -160,7 +159,7 @@ class TestTrackLatencyDecorator:
         assert result == "static"
         assert "static_call_latency_seconds" in MyClass.my_static_method.metrics
 
-    def test_decorator_with_class_method(self):
+    def test_decorator_with_classmethod(self):
         """Test decorator works with class methods."""
 
         class MyClass:
@@ -196,7 +195,7 @@ class TestTrackMemoryDecorator:
         def load_tensor():
             return torch.zeros(100, 100, device="cuda")
 
-        result = load_tensor()
+        load_tensor()
         assert "model_load_memory_delta_mb" in load_tensor.metrics
         assert isinstance(load_tensor.metrics["model_load_memory_delta_mb"], int)
 
@@ -208,7 +207,7 @@ class TestTrackMemoryDecorator:
         def my_function():
             pass
 
-        result = my_function()
+        my_function()
         assert "test_no_cuda_memory_delta_mb" in my_function.metrics
         assert my_function.metrics["test_no_cuda_memory_delta_mb"] == 0
 
@@ -229,7 +228,7 @@ class TestTrackMemoryDecorator:
 
         @track_memory_decorator("failing")
         def failing_function():
-            tensor = torch.zeros(100, 100, device="cuda")
+            _tensor = torch.zeros(100, 100, device="cuda")
             raise ValueError("Test error")
 
         with pytest.raises(ValueError):
@@ -288,7 +287,7 @@ class TestTrackMemoryDecorator:
                 return None
 
         obj = MyClass()
-        result = obj.my_method()
+        obj.my_method()
 
         assert "method_call_memory_delta_mb" in obj.my_method.metrics
 
@@ -301,7 +300,7 @@ class TestTrackMemoryDecorator:
             def my_static_method():
                 pass
 
-        result = MyClass.my_static_method()
+        MyClass.my_static_method()
         assert "static_call_memory_delta_mb" in MyClass.my_static_method.metrics
 
     def test_decorator_with_class_method_classmethod(self):

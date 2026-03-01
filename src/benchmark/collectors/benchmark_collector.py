@@ -1,17 +1,17 @@
 import time
 from typing import Any
 
+from src.benchmark.collectors.trial_models import (
+    HardwareSnapshot,
+    TokenRecord,
+    TrialRecord,
+)
 from src.benchmark.core.base import BaseMetric, MetricContext, Stage
 from src.benchmark.metrics.hardware import HardwareMetrics
 from src.benchmark.metrics.lifecycle import ModelLifecycleMetrics
 from src.benchmark.metrics.quality import QualityMetrics
 from src.benchmark.metrics.timing import TimingMetrics
 from src.benchmark.metrics.tokens import TokenMetrics
-from src.benchmark.collectors.trial_models import (
-    HardwareSnapshot,
-    TokenRecord,
-    TrialRecord,
-)
 
 
 class BenchmarkCollector:
@@ -71,8 +71,7 @@ class BenchmarkCollector:
             return
 
         has_tokens = (
-            isinstance(token_record.tokens_generated, int)
-            and token_record.tokens_generated > 0
+            isinstance(token_record.tokens_generated, int) and token_record.tokens_generated > 0
         )
         if not has_tokens:
             return
@@ -131,9 +130,7 @@ class BenchmarkCollector:
         self._current_trial.lifecycle.populate(
             load_events=[event.to_dict() for event in lifecycle_result.load_events]
         )
-        self._current_trial.lifecycle.total_model_load_time = (
-            lifecycle_result.total_model_load_time
-        )
+        self._current_trial.lifecycle.total_model_load_time = lifecycle_result.total_model_load_time
         self._current_trial.lifecycle.cache_hits = lifecycle_result.cache_hits
         self._current_trial.lifecycle.cache_misses = lifecycle_result.cache_misses
         self._current_trial.lifecycle.models_loaded = lifecycle_result.models_loaded
@@ -146,9 +143,7 @@ class BenchmarkCollector:
             trial_snapshot if trial_snapshot.has_any_value() else None
         )
 
-    def _find_metric(
-        self, metric_type: type[BaseMetric], metric_name: str
-    ) -> BaseMetric:
+    def _find_metric(self, metric_type: type[BaseMetric], metric_name: str) -> BaseMetric:
         for metric in self.metrics.values():
             if isinstance(metric, metric_type):
                 return metric
@@ -181,9 +176,7 @@ class BenchmarkCollector:
         self._current_trial.tokens.ttft = token_result.ttft
         self._current_trial.tokens.tokens_per_sec = token_result.tokens_per_sec
         self._current_trial.tokens.time_per_token = token_result.time_per_token
-        self._current_trial.tokens.total_generation_time = (
-            token_result.total_generation_time
-        )
+        self._current_trial.tokens.total_generation_time = token_result.total_generation_time
         self._apply_non_streaming_ttft_proxy(self._current_trial.tokens)
 
     def record_phase_metrics(self, phase_name: str, metrics: dict[str, Any]) -> None:
@@ -205,7 +198,6 @@ class BenchmarkCollector:
         is_warmup: bool = False,
         # TODO: what is a metadata for? what exactly are we trying to log with this?
         metadata: dict[str, Any] | None = None,
-
     ) -> None:
         if self._trial_started:
             raise RuntimeError("A trial is already active. Call end_trial() first.")

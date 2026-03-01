@@ -1,7 +1,8 @@
-import matplotlib.pyplot as plt
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
+
 
 # TODO: refactor w.r.t new benchmark framwork
 def save_bar_plot(values: dict, title: str, ylabel: str, output_path: Path):
