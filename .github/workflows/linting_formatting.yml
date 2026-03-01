@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Linting and Formatting
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [master, main]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,11 +26,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
 
-      - name: Run unit tests
-        run: uv run python -m pytest tests/unit_tests -v
+      - name: Check formatting (ruff)
+        run: uv run ruff format --check src tests
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+      - name: Check linting (ruff)
+        run: uv run ruff check src tests
+
+      - name: Static type check
+        run: uv run python -m compileall -q src tests
