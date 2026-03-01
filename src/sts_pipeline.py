@@ -2,20 +2,37 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-import sounddevice as sd
-from numpy.typing import NDArray
 import torch
+from numpy.typing import NDArray
 
+from src.llm.llm_pipeline import run_llm
+from src.logger.logging import initialise_logger
+from src.prepare_data import AudioSample
 from src.stt.stt_pipeline import run_asr
 from src.tts.tts_pipelines import run_tts
-from src.llm.llm_pipeline import run_llm
-from src.prepare_data import AudioSample
-from src.logger.logging import initialise_logger
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
 
 logger = initialise_logger(__name__)
+
+
+def get_device(preferred: str = "cuda") -> torch.device:
+    """Get torch device with automatic CPU fallback on CUDA errors."""
+    if preferred != "cuda":
+        return torch.device(preferred)
+
+    if not torch.cuda.is_available():
+        logger.warning("CUDA not available, falling back to CPU")
+        return torch.device("cpu")
+
+    try:
+        # Test CUDA with a simple operation
+        _ = torch.randn(1, device="cuda") @ torch.randn(1, device="cuda").T
+        return torch.device("cuda")
+    except Exception as e:
+        logger.warning(f"CUDA initialization failed ({e}), falling back to CPU")
+        return torch.device("cpu")
 
 
 class _NoOpMetric:
@@ -100,7 +117,7 @@ def process_sample(
     collector: "BenchmarkCollector | None" = None,
     device: torch.device | str = "cuda",
     history: list[dict] | None = None,
-    stream_audio: bool = False
+    stream_audio: bool = False,
 ) -> ProcessedSample:
     """End-to-End processing for one audio sample."""
     if collector is None:
@@ -122,7 +139,7 @@ def process_sample(
         transcription=transcription,
         history=history,
         collector=collector,
-        device=device
+        device=device,
     )
 
     # TTS (can optionally use input audio as reference for voice)
@@ -138,10 +155,15 @@ def process_sample(
 
     # optionally stream the generated audio
     if stream_audio:
-        print("Playing audio now...")
-        sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
-        sd.wait()  # Block until playback finishes
-        print("Playback complete.")
+        import sounddevice as sd
+
+        try:
+            print("Playing audio now...")
+            sd.play(tts_waveform, output_sample_rate)  # Usually 24000 Hz for XTTS
+            sd.wait()  # Block until playback finishes
+            print("Playback complete.")
+        except Exception as e:
+            logger.warning(f"Audio playback failed: {e}")
 
     processed_sample = ProcessedSample(
         groundtruth=sample.transcript,
@@ -149,12 +171,13 @@ def process_sample(
         llm_response=response,
         tts_waveform=tts_waveform,
         tts_waveform_output_sr=output_sample_rate,
-        new_history=new_history)
+        new_history=new_history,
+    )
 
-        # TODO: implement multi turn system. might need to find a dataset with
-        # multi turn conversation
-        # if i == (num_samples - 1):
-        #     logger.info(f"Simulating 2nd turn...")
-        #
+    # TODO: implement multi turn system. might need to find a dataset with
+    # multi turn conversation
+    # if i == (num_samples - 1):
+    #     logger.info(f"Simulating 2nd turn...")
+    #
 
     return processed_sample

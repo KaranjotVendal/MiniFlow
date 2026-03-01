@@ -8,8 +8,8 @@ from transformers import (
     pipeline,
 )
 
-from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
+from src.utils import clear_gpu_cache
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -50,10 +50,7 @@ def _build_history(history: list[dict] | None, transcription) -> str:
 
     messages = history + [{"role": "user", "content": transcription}]
 
-    prompt = (
-        "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages])
-        + "\nassistant:"
-    )
+    prompt = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages]) + "\nassistant:"
     return prompt
 
 
@@ -77,7 +74,9 @@ def run_llm(
         # model
         quant_config = _quant_config(config)
         collector.hardware_metrics.start(collector.context)
-        collector.lifecycle_metrics.record_load_start(model_name=config["model_name"], source="remote(HF)")
+        collector.lifecycle_metrics.record_load_start(
+            model_name=config["model_name"], source="remote(HF)"
+        )
 
         model = AutoModelForCausalLM.from_pretrained(
             config["model_id"],
@@ -165,7 +164,6 @@ def run_llm(
             {"role": "assistant", "content": assistant_reply},
         ]
         return assistant_reply, updated_history
-
 
     except Exception:
         if collector is not None and not load_closed:

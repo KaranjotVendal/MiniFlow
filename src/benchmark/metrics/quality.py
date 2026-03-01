@@ -4,9 +4,9 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 import jiwer
-import utmosv2
 import torch
 import torchaudio
+import utmosv2
 
 from src.benchmark.core.base import BaseMetric, MetricContext
 from src.benchmark.core.registry import MetricRegistry
@@ -81,9 +81,7 @@ class UTMOSEvaluator(BaseEvaluator):
     # Minimum sample rate UTMOS was trained on
     MIN_SAMPLE_RATE: int = 16000
 
-    def _utmos_evaluate(
-        self, waveform: torch.Tensor, output_sampling_rate: int
-    ) -> float:
+    def _utmos_evaluate(self, waveform: torch.Tensor, output_sampling_rate: int) -> float:
         """Calculate UTMOS score for a synthesized waveform.
 
         Args:
@@ -112,7 +110,7 @@ class UTMOSEvaluator(BaseEvaluator):
 
             utmos = utmosv2.create_model(pretrained=True)
             result = utmos.predict(input_path=str(temp_path))
-            mos = result if isinstance(result, (int, float)) else 0.0
+            mos = result if isinstance(result, int | float) else 0.0
 
         return round(float(mos), 2)
 
@@ -162,9 +160,7 @@ class QualityMetrics(BaseMetric):
         """
         super().__init__(config)
         evaluators_list = self.config["evaluators"]
-        self.evaluators: dict[str, BaseEvaluator] = self._create_evaluators(
-            names=evaluators_list
-        )
+        self.evaluators: dict[str, BaseEvaluator] = self._create_evaluators(names=evaluators_list)
 
     def _create_evaluators(self, names: list[str]) -> dict[str, BaseEvaluator]:
         """Create evaluator instances from names."""
@@ -193,9 +189,7 @@ class QualityMetrics(BaseMetric):
             Dictionary mapping evaluator name to score.
         """
         if evaluator == WEREvaluator.NAME:
-            assert output_sample_rate is None, (
-                "WER Evaluator does not use output_sample_rate"
-            )
+            assert output_sample_rate is None, "WER Evaluator does not use output_sample_rate"
             score = self.evaluators[evaluator].evaluate(prediction, reference)
 
         elif evaluator == UTMOSEvaluator.NAME:

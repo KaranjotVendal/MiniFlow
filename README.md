@@ -4,15 +4,38 @@
 
 ---
 
-## CI
+## CI/CD
 
-GitHub Actions workflow: `.github/workflows/ci.yml`
+GitHub Actions workflows in `.github/workflows/`:
 
-Quality gate includes:
-1. dependency sync (`uv sync --frozen`)
-2. static compile sanity check
-3. full test suite
-4. Docker build smoke test
+| Workflow | Purpose | Triggers |
+|----------|---------|----------|
+| `linting_formatting.yml` | Ruff linting and formatting checks | PR, push to main/master |
+| `unit-tests.yml` | Unit test suite with coverage | PR, push to main/master |
+| `docker.yml` | Docker image build verification | PR, push to main/master |
+
+### Quality Gates
+
+All workflows must pass before merge:
+1. **Linting**: Ruff format and lint checks
+2. **Tests**: pytest unit tests  
+3. **Build**: Docker image compiles successfully
+
+### Running Checks Locally
+
+```bash
+# Format code
+uv run ruff format src tests
+
+# Check linting
+uv run ruff check src tests
+
+# Run tests
+uv run pytest tests/unit_tests -v
+
+# Run all pre-commit hooks
+uv run pre-commit run --all-files
+```
 
 ---
 
@@ -108,6 +131,50 @@ MiniFlow's speech-to-speech pipeline has been benchmarked using two different TT
 
 ---
 
+## Development Setup
+
+### Prerequisites
+
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) package manager
+- CUDA-capable GPU (optional, for full pipeline testing)
+
+### Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/KaranjotVendal/MiniFlow.git
+cd MiniFlow
+
+# Install dependencies
+uv sync --group dev
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
+### Pre-commit Hooks
+
+Pre-commit hooks run automatically on every commit to catch issues early:
+
+```bash
+# Run all hooks manually
+uv run pre-commit run --all-files
+
+# Skip hooks in emergency (not recommended)
+git commit -m "hotfix" --no-verify
+```
+
+Configured hooks include:
+- **Ruff**: Linting and formatting
+- **trailing-whitespace**: Clean whitespace
+- **end-of-file-fixer**: Ensure newlines at EOF
+- **check-merge-conflict**: Detect conflict markers
+- **check-added-large-files**: Block files >1MB
+- **debug-statements**: Catch leftover debug code
+
+See `.pre-commit-config.yaml` for full configuration.
+
 ## Running Benchmarks
 
 ```bash
@@ -136,11 +203,19 @@ cp .env.example .env
 ```
 
 Key variables:
-1. `MINIFLOW_CONFIG` - main pipeline YAML path
-2. `MINIFLOW_METRICS_CONFIG` - optional benchmark metrics YAML override
-3. `MINIFLOW_REQUEST_TIMEOUT_SECONDS` - `/s2s` timeout
-4. `MINIFLOW_MAX_AUDIO_UPLOAD_BYTES` - max upload size
-5. `RELEASE_ID` - runtime release label
+1. `MINIFLOW_CONFIG` - required main pipeline YAML path
+2. `MINIFLOW_REQUEST_TIMEOUT_SECONDS` - `/s2s` timeout
+3. `MINIFLOW_MAX_AUDIO_UPLOAD_BYTES` - max upload size
+4. `RELEASE_ID` - required runtime release label (pseudo now; CI-generated later)
+
+Benchmark configuration is CLI-driven via `--config`; metrics config is resolved
+from the benchmark YAML `metrics` field.
+
+Settings precedence:
+1. Environment variables (highest)
+2. Built-in defaults (lowest)
+
+Note: Docker compose sets `MINIFLOW_CONFIG` explicitly per runtime.
 
 ## Docker Profiles
 

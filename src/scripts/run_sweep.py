@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-from src.config.load_config import load_yaml_config
 import argparse
 from pathlib import Path
 
 from src.benchmark.runner.sweep_runner import run_sweep
+from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 
 logger = initialise_logger(__name__)

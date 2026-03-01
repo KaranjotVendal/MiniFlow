@@ -1,6 +1,13 @@
+# VCS metadata
 .git
 .gitignore
 .gitmodules
+
+# Container/build configuration files (not needed in runtime image)
+Dockerfile
+docker-compose*.yml
+
+# Local Python environments and caches
 .venv
 .pytest_cache
 .ruff_cache
@@ -10,18 +17,26 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Generated benchmark/metrics artifacts
 Benchmark/
-metrics/
 miniflow.log
 temp_tts_wav.wav
 
+# Local datasets and experiment outputs
 data_assets/
 globe_samples/
 sweeps/
 sanity/
 
+# Non-runtime project assets
 tests/
 docs/
 *.ipynb
 
+# Submodule VCS metadata
 vibevoice/.git
+
+# Local environment and logs
+.env
+.env.*
+*.log

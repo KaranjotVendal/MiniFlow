@@ -1,0 +1,42 @@
+# Pre-commit hooks for MiniFlow
+# Install: uv run pre-commit install
+# Run manually: uv run pre-commit run --all-files
+
+repos:
+  # Ruff - linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.0
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix]
+        files: ^(src|tests)/
+      # Run the formatter
+      - id: ruff-format
+        files: ^(src|tests)/
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        exclude: ^(\.venv/|vibevoice/)
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        exclude: ^(\.venv/|vibevoice/)
+      # Check for merge conflict markers
+      - id: check-merge-conflict
+      # Check for added large files
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      # Check for debug statements
+      - id: debug-statements
+        files: ^(src|tests)/
+      # Check YAML syntax
+      - id: check-yaml
+      # Check JSON syntax
+      - id: check-json
+      # Prevent committing to main/master directly
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']

@@ -1,9 +1,9 @@
 import pytest
 
 from src.benchmark.config.validation import (
+    BenchmarkConfig,
     MetricConfig,
     MetricsConfig,
-    BenchmarkConfig,
 )
 
 
@@ -42,7 +42,7 @@ class TestMetricsConfig:
     def test_get_config_nonexistent_metric(self):
         config = MetricsConfig(enabled=["timing"], configurations={})
         result = config.get_config("nonexistent")
-        assert result == None
+        assert result is None
 
     def test_with_multiple_metrics(self):
         config = MetricsConfig(
