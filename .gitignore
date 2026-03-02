@@ -21,4 +21,7 @@ src/.ipynb_checkpoints/
 
 *.log
 *.wav
-docs/*
+
+# Archive AWS files (GCP migration - keep locally but don't commit)
+.github/workflows/deploy-staging.yml
+infra/aws/
