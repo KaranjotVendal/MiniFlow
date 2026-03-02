@@ -1,0 +1,98 @@
+name: Deploy Staging (GCP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g., sha-abc1234)"
+        required: true
+        default: "main"
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  TF_DIR: infra/gcp/terraform
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}"
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}"
+
+      - name: Get Service URL
+        id: get-url
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          SERVICE_URL=$(terraform output -raw service_url)
+          echo "url=${SERVICE_URL}" >> $GITHUB_OUTPUT
+          echo "Service URL: ${SERVICE_URL}"
+
+      - name: Health Checks
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 30
+          
+          echo "Checking /health endpoint..."
+          curl --fail --retry 5 --retry-delay 10 \
+            "${{ steps.get-url.outputs.url }}/health"
+          
+          echo "Checking /ready endpoint..."
+          curl --fail --retry 5 --retry-delay 10 \
+            "${{ steps.get-url.outputs.url }}/ready"
+          
+          echo "All health checks passed!"
+
+      - name: Output Deployment Info
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service URL**: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test the deployment:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "curl ${{ steps.get-url.outputs.url }}/health" >> $GITHUB_STEP_SUMMARY
+          echo "curl ${{ steps.get-url.outputs.url }}/ready" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
