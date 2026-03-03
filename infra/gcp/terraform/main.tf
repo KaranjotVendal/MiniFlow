@@ -104,7 +104,7 @@ resource "google_cloud_run_service_iam_member" "public" {
 
 # Budget alert (optional, requires billing account)
 resource "google_billing_budget" "monthly" {
-  count = var.project_id != "" ? 1 : 0
+  count = var.enable_budget_alerts ? 1 : 0
 
   billing_account = data.google_billing_account.account[0].id
   display_name    = "${local.service_name}-monthly-budget"
@@ -138,13 +138,13 @@ resource "google_billing_budget" "monthly" {
 
 # Notification channel for budget alerts
 data "google_billing_account" "account" {
-  count               = var.project_id != "" ? 1 : 0
+  count               = var.enable_budget_alerts ? 1 : 0
   billing_account     = var.billing_account_id
   open                = true
 }
 
 resource "google_monitoring_notification_channel" "email" {
-  count        = var.project_id != "" ? 1 : 0
+  count        = var.enable_budget_alerts ? 1 : 0
   display_name = "Budget Alert Email"
   type         = "email"
 

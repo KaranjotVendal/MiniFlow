@@ -94,3 +94,9 @@ variable "billing_account_id" {
   type        = string
   default     = "01413B-39FB78-6C67C1"
 }
+
+variable "enable_budget_alerts" {
+  description = "Whether to provision billing budget and email notification resources"
+  type        = bool
+  default     = false
+}
