@@ -110,13 +110,13 @@ jobs:
                 SELECTED_ZONE="$zone"
                 break
               else
-                # Instance failed to provision
+                # Instance failed to provision - continue to next zone
                 echo "❌ Failed to provision"
                 gcloud compute instances delete gpu-test-${{ github.run_id }} \
                   --zone="$zone" \
                   --quiet 2>/dev/null || true
               fi
-              break
+              # Note: break only happens in success case above
             else
               echo "❌ Not available"
             fi
