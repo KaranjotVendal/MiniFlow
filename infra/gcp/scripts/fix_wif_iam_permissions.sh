@@ -12,15 +12,17 @@ set -euo pipefail
 #     --repo KaranjotVendal/MiniFlow
 #
 # Optional flags:
-#   --service-account      Service account email (default: github-actions@<project>.iam.gserviceaccount.com)
-#   --pool                 Workload Identity Pool name (default: github-pool)
-#   --provider             Workload Identity Provider name (default: github-provider)
+#   --service-account          Service account email (default: github-actions@<project>.iam.gserviceaccount.com)
+#   --pool                     Workload Identity Pool name (default: github-pool)
+#   --provider                 Workload Identity Provider name (default: github-provider)
+#   --update-provider-condition  If set, update provider attribute-condition to assertion.repository=='<repo>'
 
 PROJECT_ID=""
 REPO=""
 SERVICE_ACCOUNT=""
 POOL="github-pool"
 PROVIDER="github-provider"
+UPDATE_PROVIDER_CONDITION="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +45,10 @@ while [[ $# -gt 0 ]]; do
     --provider)
       PROVIDER="$2"
       shift 2
+      ;;
+    --update-provider-condition)
+      UPDATE_PROVIDER_CONDITION="true"
+      shift 1
       ;;
     -h|--help)
       sed -n '1,60p' "$0"
@@ -92,6 +98,33 @@ gcloud iam workload-identity-pools providers describe "$PROVIDER" \
   --location="global" \
   --workload-identity-pool="$POOL" \
   --project="$PROJECT_ID" >/dev/null
+
+EXPECTED_CONDITION="assertion.repository=='${REPO}'"
+CURRENT_CONDITION=$(gcloud iam workload-identity-pools providers describe "$PROVIDER" \
+  --location="global" \
+  --workload-identity-pool="$POOL" \
+  --project="$PROJECT_ID" \
+  --format='value(attributeCondition)')
+
+if [[ "$CURRENT_CONDITION" != "$EXPECTED_CONDITION" ]]; then
+  echo ""
+  echo "WARNING: Provider attribute-condition does not match repository."
+  echo "  Current : $CURRENT_CONDITION"
+  echo "  Expected: $EXPECTED_CONDITION"
+  echo ""
+  if [[ "$UPDATE_PROVIDER_CONDITION" == "true" ]]; then
+    echo "Updating provider attribute-condition..."
+    gcloud iam workload-identity-pools providers update-oidc "$PROVIDER" \
+      --location="global" \
+      --workload-identity-pool="$POOL" \
+      --project="$PROJECT_ID" \
+      --attribute-condition="$EXPECTED_CONDITION" >/dev/null
+    echo "Provider attribute-condition updated."
+  else
+    echo "Run with --update-provider-condition to fix automatically, or run:"
+    echo "  gcloud iam workload-identity-pools providers update-oidc ${PROVIDER} --location=global --workload-identity-pool=${POOL} --project=${PROJECT_ID} --attribute-condition=\"${EXPECTED_CONDITION}\""
+  fi
+fi
 
 MEMBER="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}"
 

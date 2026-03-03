@@ -204,11 +204,22 @@ Because workflow jobs use `environment: miniflow`, ensure those secrets exist in
 
 ### Error: `iam.serviceAccounts.getAccessToken denied`
 
-Cause:
+Cause (most common):
 - Missing `roles/iam.workloadIdentityUser` and/or `roles/iam.serviceAccountTokenCreator` on service account for GitHub principalSet.
+
+Cause (also common and easy to miss):
+- Workload Identity Provider `attributeCondition` has the wrong repository string (for example `MiniFLow` vs `MiniFlow`).
+- Repository matching is exact and case-sensitive.
 
 Fix:
 - Run script in this guide.
+- If provider condition is wrong, run script with:
+  ```bash
+  bash infra/gcp/scripts/fix_wif_iam_permissions.sh \
+    --project-id miniflow-489011 \
+    --repo KaranjotVendal/MiniFlow \
+    --update-provider-condition
+  ```
 
 ### Error: `workflow auth inputs empty`
 
@@ -243,12 +254,40 @@ Fix:
    ```bash
    bash infra/gcp/scripts/fix_wif_iam_permissions.sh --project-id miniflow-489011 --repo KaranjotVendal/MiniFlow
    ```
-2. Confirm service-account policy includes required bindings.
-3. Confirm GitHub environment secrets are present in `miniflow` environment.
-4. Re-run workflow:
+2. If repository condition mismatch is suspected, run:
+   ```bash
+   bash infra/gcp/scripts/fix_wif_iam_permissions.sh \
+     --project-id miniflow-489011 \
+     --repo KaranjotVendal/MiniFlow \
+     --update-provider-condition
+   ```
+3. Confirm service-account policy includes required bindings.
+4. Confirm GitHub environment secrets are present in `miniflow` environment.
+5. Re-run workflow:
    - `Deploy Staging (GCP)`
    - `deployment_type=cpu`
    - image tag set to a known existing GHCR tag.
+
+### Optional reset procedure (if SA bindings are polluted)
+
+If you accidentally created wrong principalSet members and want to clear only
+WIF impersonation bindings from the service account before reapplying:
+
+```bash
+PROJECT_ID="miniflow-489011"
+SA="github-actions@miniflow-489011.iam.gserviceaccount.com"
+
+gcloud iam service-accounts set-iam-policy "$SA" \
+  <(gcloud iam service-accounts get-iam-policy "$SA" --project="$PROJECT_ID" \
+    --format=json | jq '
+      .bindings |= map(
+        if .role=="roles/iam.workloadIdentityUser" or .role=="roles/iam.serviceAccountTokenCreator"
+        then .members=[] else . end
+      ) | .bindings |= map(select(.members|length>0))
+    ')
+```
+
+Then rerun the script with correct repo and `--update-provider-condition` if needed.
 
 ---
 
