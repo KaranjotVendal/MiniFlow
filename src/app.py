@@ -157,7 +157,7 @@ def readiness_check():
     return {
         "status": "ready",
         "cuda_available": torch.cuda.is_available(),
-        "device": get_device(),
+        "device": str(get_device()),
     }
 
 

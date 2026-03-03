@@ -1,0 +1,127 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    outputs:
+      image_sha_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/miniflow
+          tags: |
+            type=raw,value=main,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Write release metadata
+        run: |
+          mkdir -p artifacts
+          {
+            echo "repository=${{ github.repository }}"
+            echo "git_sha=${{ github.sha }}"
+            echo "image_tags=${{ steps.meta.outputs.tags }}"
+            echo "published_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > artifacts/release-metadata.txt
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: artifacts/release-metadata.txt
+
+  smoke-test-published:
+    name: Smoke Test Published Image
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and test image
+        run: |
+          # Extract SHA tag from metadata output
+          SHA_TAG=$(echo '${{ needs.build-and-publish.outputs.image_sha_tag }}' | grep -o 'sha-[a-f0-9]*' | head -1)
+          
+          # Repository name must be lowercase for Docker
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${REPO_OWNER}/miniflow:${SHA_TAG}"
+
+          echo "Testing image: ${IMAGE}"
+          docker pull ${IMAGE}
+
+          # Run container with CPU mode for testing
+          docker run -d \
+            --name miniflow-smoke-test \
+            -p 8000:8000 \
+            -e MINIFLOW_DEVICE=cpu \
+            -e COQUI_TOS_AGREED=1 \
+            -e MINIFLOW_CONFIG=configs/3_TTS-to-vibevoice.yml \
+            -e RELEASE_ID=ci-test \
+            ${IMAGE}
+
+          # Wait for startup
+          echo "Waiting for container to start..."
+          sleep 45
+
+          # Test health endpoint
+          echo "Testing /health..."
+          curl -f --max-time 10 http://localhost:8000/health || {
+            echo "Health check failed! Container logs:"
+            docker logs miniflow-smoke-test
+            exit 1
+          }
+
+          # Test readiness endpoint
+          echo "Testing /ready..."
+          curl -f --max-time 10 http://localhost:8000/ready || {
+            echo "Readiness check failed! Container logs:"
+            docker logs miniflow-smoke-test
+            exit 1
+          }
+
+          echo "All smoke tests passed!"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop miniflow-smoke-test || true
+          docker rm miniflow-smoke-test || true
