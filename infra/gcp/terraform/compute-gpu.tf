@@ -95,7 +95,8 @@ spec:
 EOF
 
     # Enable GPU driver installation
-    install-nvidia-driver = "true"
+    # Use specific version if provided, otherwise let COS install latest compatible
+    install-nvidia-driver = var.gpu_driver_version != "" ? var.gpu_driver_version : "true"
   }
 
   # Labels for organization

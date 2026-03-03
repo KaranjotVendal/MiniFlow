@@ -76,6 +76,12 @@ variable "gpu_count" {
   default     = 1
 }
 
+variable "gpu_driver_version" {
+  description = "NVIDIA driver version to install (leave empty for latest)"
+  type        = string
+  default     = ""
+}
+
 # Alert Configuration
 variable "alert_email" {
   description = "Email address for budget alerts"
