@@ -293,15 +293,29 @@ jobs:
 
       - name: Health Checks
         run: |
-          echo "Waiting for service to be ready..."
-          sleep 30
+          MODE="${{ steps.deploy-mode.outputs.mode }}"
+
+          if [ "$MODE" == "gpu" ]; then
+            echo "GPU deployment detected: allowing extra startup time for VM, drivers, and model loading"
+            INITIAL_WAIT=180
+            RETRIES=20
+            RETRY_DELAY=15
+          else
+            echo "CPU deployment detected: using standard startup window"
+            INITIAL_WAIT=30
+            RETRIES=5
+            RETRY_DELAY=10
+          fi
+
+          echo "Waiting ${INITIAL_WAIT}s for service to be ready..."
+          sleep "$INITIAL_WAIT"
 
           echo "Checking /health endpoint..."
-          curl --fail --retry 5 --retry-delay 10 \
+          curl --fail --retry "$RETRIES" --retry-delay "$RETRY_DELAY" \
             "${{ steps.get-url.outputs.url }}/health"
 
           echo "Checking /ready endpoint..."
-          curl --fail --retry 5 --retry-delay 10 \
+          curl --fail --retry "$RETRIES" --retry-delay "$RETRY_DELAY" \
             "${{ steps.get-url.outputs.url }}/ready"
 
           echo "All health checks passed!"
