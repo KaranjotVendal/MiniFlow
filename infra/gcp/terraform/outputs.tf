@@ -37,7 +37,7 @@ output "gpu_instance_ssh_command" {
 
 output "gpu_zone_used" {
   description = "Zone where GPU instance was deployed"
-  value       = try(var.gpu_zone, null)
+  value       = var.deployment_type == "gpu" ? var.gpu_zone : null
 }
 
 # Deployment type output
