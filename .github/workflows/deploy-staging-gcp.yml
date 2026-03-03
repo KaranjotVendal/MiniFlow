@@ -1,0 +1,339 @@
+name: Deploy Staging (GCP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: "Deployment type"
+        required: true
+        default: "cpu"
+        type: choice
+        options:
+          - cpu
+          - gpu
+          - auto
+      image_tag:
+        description: "Image tag to deploy (e.g., sha-abc1234)"
+        required: true
+        default: "main"
+      gpu_type:
+        description: "GPU type (for GPU deployment)"
+        required: false
+        default: "nvidia-tesla-p100"
+        type: choice
+        options:
+          - nvidia-tesla-p100
+          - nvidia-tesla-t4
+          - nvidia-tesla-v100
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  TF_DIR: infra/gcp/terraform
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+# Prevent concurrent deployments to avoid conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  find-gpu-zone:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.deployment_type == 'gpu' || github.event.inputs.deployment_type == 'auto'
+    outputs:
+      gpu_zone: ${{ steps.find-zone.outputs.gpu_zone }}
+      gpu_available: ${{ steps.find-zone.outputs.gpu_available }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Find Available GPU Zone
+        id: find-zone
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          echo "Searching for available GPU zone..."
+          echo "GPU Type: ${{ github.event.inputs.gpu_type }}"
+          echo ""
+
+          # Zones to try (in order of preference)
+          ZONES=("us-central1-b" "us-central1-c" "us-central1-f" "us-central1-a" "us-west1-b" "us-west1-c")
+          GPU_AVAILABLE="false"
+          SELECTED_ZONE=""
+
+          delete_test_instance() {
+            local zone="$1"
+            for attempt in {1..5}; do
+              if gcloud compute instances delete gpu-test-${{ github.run_id }} \
+                --zone="$zone" \
+                --quiet 2>/dev/null; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          for zone in "${ZONES[@]}"; do
+            echo -n "Testing $zone... "
+
+            # Try to create test instance with async and timeout
+            # Use --async to not wait for completion, then poll for status
+            if gcloud compute instances create gpu-test-${{ github.run_id }} \
+                --zone="$zone" \
+                --machine-type=n1-standard-4 \
+                --accelerator="type=${{ github.event.inputs.gpu_type }},count=1" \
+                --maintenance-policy=TERMINATE \
+                --preemptible \
+                --quiet \
+                --async \
+                --format="none" 2>/dev/null; then
+
+              # Poll for RUNNING status (instance may take time to provision)
+              echo -n "Waiting for instance... "
+              for i in {1..12}; do
+                sleep 10
+                STATUS=$(gcloud compute instances describe gpu-test-${{ github.run_id }} \
+                    --zone="$zone" \
+                    --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+                if [ "$STATUS" = "RUNNING" ]; then
+                  break
+                fi
+                echo -n "."
+              done
+              echo ""
+
+              # Verify instance is running
+              if [ "$STATUS" = "RUNNING" ]; then
+                # Success! Delete test instance
+                if ! delete_test_instance "$zone"; then
+                  echo "Warning: could not delete test instance in $zone after retries"
+                fi
+
+                echo "AVAILABLE"
+                GPU_AVAILABLE="true"
+                SELECTED_ZONE="$zone"
+                break
+              else
+                # Instance failed to provision - continue to next zone
+                echo "FAILED TO PROVISION"
+                if ! delete_test_instance "$zone"; then
+                  echo "Warning: could not delete failed test instance in $zone after retries"
+                fi
+              fi
+            else
+              echo "NOT AVAILABLE"
+            fi
+          done
+
+          echo "gpu_zone=$SELECTED_ZONE" >> $GITHUB_OUTPUT
+          echo "gpu_available=$GPU_AVAILABLE" >> $GITHUB_OUTPUT
+
+          if [ "$GPU_AVAILABLE" == "true" ]; then
+            echo ""
+            echo "Found available zone: $SELECTED_ZONE"
+          else
+            echo ""
+            echo "No GPU zones available"
+          fi
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: find-gpu-zone
+    if: always() && (needs.find-gpu-zone.result == 'success' || needs.find-gpu-zone.result == 'skipped')
+
+    steps:
+      - name: Determine deployment mode
+        id: deploy-mode
+        run: |
+          DEPLOY_TYPE="${{ github.event.inputs.deployment_type }}"
+          GPU_AVAILABLE="${{ needs.find-gpu-zone.outputs.gpu_available }}"
+
+          if [ "$DEPLOY_TYPE" == "auto" ]; then
+            if [ "$GPU_AVAILABLE" == "true" ]; then
+              echo "mode=gpu" >> $GITHUB_OUTPUT
+              echo "Deploying with GPU (auto-selected)"
+            else
+              echo "mode=cpu" >> $GITHUB_OUTPUT
+              echo "Deploying CPU mode (GPU not available)"
+            fi
+          else
+            echo "mode=$DEPLOY_TYPE" >> $GITHUB_OUTPUT
+            echo "Deploying $DEPLOY_TYPE mode"
+          fi
+
+      - name: Validate GPU zone
+        if: steps.deploy-mode.outputs.mode == 'gpu'
+        run: |
+          if [ -z "${{ needs.find-gpu-zone.outputs.gpu_zone }}" ]; then
+            echo "Error: No GPU zone available but GPU deployment requested"
+            echo "This can happen if all zones are exhausted"
+            exit 1
+          fi
+          echo "GPU zone validated: ${{ needs.find-gpu-zone.outputs.gpu_zone }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Verify container image exists
+        id: image-info
+        run: |
+          # Docker requires lowercase repository path
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/miniflow:${{ github.event.inputs.image_tag }}"
+          echo "Verifying image: ${IMAGE}"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+
+          # Log in to GHCR
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Try to pull the image to verify it exists
+          if docker pull "${IMAGE}"; then
+            echo "Image verified successfully"
+          else
+            echo "Error: Image ${IMAGE} not found in GHCR!"
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan (CPU)
+        if: steps.deploy-mode.outputs.mode == 'cpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=cpu" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "miniflow_device=cpu"
+
+      - name: Terraform Plan (GPU)
+        if: steps.deploy-mode.outputs.mode == 'gpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=gpu" \
+            -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
+            -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "miniflow_device=cuda"
+
+      - name: Terraform Apply (CPU)
+        if: steps.deploy-mode.outputs.mode == 'cpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=cpu" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "miniflow_device=cpu"
+
+      - name: Terraform Apply (GPU)
+        if: steps.deploy-mode.outputs.mode == 'gpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=gpu" \
+            -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
+            -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "miniflow_device=cuda"
+
+      - name: Get Service URL
+        id: get-url
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          if [ "${{ steps.deploy-mode.outputs.mode }}" == "cpu" ]; then
+            SERVICE_URL=$(terraform output -raw service_url)
+          else
+            SERVICE_URL=$(terraform output -raw gpu_instance_url)
+          fi
+          echo "url=${SERVICE_URL}" >> $GITHUB_OUTPUT
+          echo "Service URL: ${SERVICE_URL}"
+
+      - name: Health Checks
+        run: |
+          MODE="${{ steps.deploy-mode.outputs.mode }}"
+
+          if [ "$MODE" == "gpu" ]; then
+            echo "GPU deployment detected: allowing extra startup time for VM, drivers, and model loading"
+            INITIAL_WAIT=180
+            RETRIES=20
+            RETRY_DELAY=15
+          else
+            echo "CPU deployment detected: using standard startup window"
+            INITIAL_WAIT=30
+            RETRIES=5
+            RETRY_DELAY=10
+          fi
+
+          echo "Waiting ${INITIAL_WAIT}s for service to be ready..."
+          sleep "$INITIAL_WAIT"
+
+          echo "Checking /health endpoint..."
+          curl --fail --retry "$RETRIES" --retry-delay "$RETRY_DELAY" \
+            "${{ steps.get-url.outputs.url }}/health"
+
+          echo "Checking /ready endpoint..."
+          curl --fail --retry "$RETRIES" --retry-delay "$RETRY_DELAY" \
+            "${{ steps.get-url.outputs.url }}/ready"
+
+          echo "All health checks passed!"
+
+      - name: Output Deployment Info
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Type**: ${{ steps.deploy-mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service URL**: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ steps.image-info.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.deploy-mode.outputs.mode }}" == "gpu" ]; then
+            echo "- **GPU Zone**: ${{ needs.find-gpu-zone.outputs.gpu_zone }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **GPU Type**: ${{ github.event.inputs.gpu_type }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test the deployment:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "curl ${{ steps.get-url.outputs.url }}/health" >> $GITHUB_STEP_SUMMARY
+          echo "curl ${{ steps.get-url.outputs.url }}/ready" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
