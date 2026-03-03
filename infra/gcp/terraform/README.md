@@ -1,330 +1,177 @@
-# MiniFlow GCP Staging (Terraform)
+# GCP Infrastructure for MiniFlow
 
-Terraform configuration for deploying MiniFlow to Google Cloud Platform using Cloud Run.
+This directory contains Terraform configurations for deploying MiniFlow on Google Cloud Platform.
 
----
+## Architecture
 
-## Overview
+Two deployment options are available:
 
-This module deploys MiniFlow as a Cloud Run service on GCP. Cloud Run provides:
-- Serverless container hosting
-- Automatic scaling (including to zero)
-- Built-in load balancing and SSL
-- Pay-per-use pricing
+### 1. Cloud Run (CPU)
+- **Best for**: Learning, testing, development
+- **Pros**: Instant deployment, scales to zero, very low cost
+- **Cons**: 10x slower inference, no GPU acceleration
+- **Cost**: ~$0-5/month (scales to zero)
 
----
-
-## Prerequisites
-
-1. **GCP Project**: Create a project at https://console.cloud.google.com/
-2. **Billing**: Enable billing (required even for free tier)
-3. **Container Image**: Image must be pushed to GHCR or GCR
-
----
+### 2. Compute Engine with GPU
+- **Best for**: Production inference, demos, benchmarks
+- **Pros**: GPU acceleration, full control, persistent storage
+- **Cons**: More expensive, requires GPU availability
+- **Cost**: ~$0.50-0.80/hour (P100) or ~$0.35/hour with preemptible
 
 ## Quick Start
 
-### 1. Authenticate GCP
+### Find Available GPU Zone
+
+Since GPU availability varies by zone and time, use the helper script:
 
 ```bash
-# Install gcloud CLI: https://cloud.google.com/sdk/docs/install
+# Find zone with P100 (recommended)
+./find-gpu-zone.sh
 
-# Authenticate
-gcloud auth application-default login
+# Find zone with T4
+./find-gpu-zone.sh miniflow-489011 n1-standard-4 nvidia-tesla-t4 1
 
-# Set project
-gcloud config set project YOUR_PROJECT_ID
+# Find zone with V100
+./find-gpu-zone.sh miniflow-489011 n1-standard-8 nvidia-tesla-v100 1
 ```
 
-### 2. Deploy
+### Deploy Cloud Run (CPU)
+
+```bash
+cd infra/gcp/terraform
+terraform init
+terraform plan \
+  -var="project_id=miniflow-489011" \
+  -var="deployment_type=cpu" \
+  -var="container_image=ghcr.io/youruser/miniflow:main"
+
+terraform apply \
+  -var="project_id=miniflow-489011" \
+  -var="deployment_type=cpu" \
+  -var="container_image=ghcr.io/youruser/miniflow:main"
+```
+
+### Deploy with GPU
 
 ```bash
 cd infra/gcp/terraform
 
-# Initialize
-terraform init
+# First, find available zone
+ZONE=$(./find-gpu-zone.sh | grep "export GPU_ZONE" | cut -d'"' -f2)
 
-# Plan
+# Deploy with GPU (only provisions GPU instance, not Cloud Run)
 terraform plan \
-  -var "project_id=YOUR_PROJECT_ID" \
-  -var "container_image=ghcr.io/karanjotvendal/miniflow:sha-XXXXXXX"
+  -var="project_id=miniflow-489011" \
+  -var="deployment_type=gpu" \
+  -var="gpu_zone=$ZONE" \
+  -var="gpu_type=nvidia-tesla-p100" \
+  -var="container_image=ghcr.io/youruser/miniflow:main" \
+  -var="miniflow_device=cuda"
 
-# Apply
 terraform apply \
-  -var "project_id=YOUR_PROJECT_ID" \
-  -var "container_image=ghcr.io/karanjotvendal/miniflow:sha-XXXXXXX"
+  -var="project_id=miniflow-489011" \
+  -var="deployment_type=gpu" \
+  -var="gpu_zone=$ZONE" \
+  -var="gpu_type=nvidia-tesla-p100" \
+  -var="container_image=ghcr.io/youruser/miniflow:main" \
+  -var="miniflow_device=cuda"
 ```
 
-### 3. Test Deployment
+### Conditional Deployment
 
-```bash
-# Get the service URL
-export SERVICE_URL=$(terraform output -raw service_url)
+Terraform now only provisions the resources you need:
 
-echo "Service URL: $SERVICE_URL"
+| deployment_type | Provisions |
+|----------------|------------|
+| `cpu` | Cloud Run only |
+| `gpu` | Compute Engine GPU only |
+| `auto` | Cloud Run only (fallback from auto mode) |
 
-# Test endpoints
-curl $SERVICE_URL/health
-curl $SERVICE_URL/ready
-```
-
-### 4. Cleanup
-
-```bash
-# Destroy all resources (stops billing)
-terraform destroy
-```
-
----
-
-## Configuration
-
-### Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `project_id` | GCP project ID | - | Yes |
-| `region` | GCP region | `us-central1` | No |
-| `container_image` | Container image URL | - | Yes |
-| `service_name` | Cloud Run service name | `miniflow` | No |
-| `cpu` | CPU allocation | `2` | No |
-| `memory` | Memory allocation | `4Gi` | No |
-| `miniflow_config` | Config file path | `configs/3_TTS-to-vibevoice.yml` | No |
-| `miniflow_device` | Device (cpu/cuda) | `cpu` | No |
-| `release_id` | Release identifier | `gcp-staging` | No |
-
-### Example: terraform.tfvars
-
-```hcl
-project_id = "my-project-123456"
-region     = "us-central1"
-
-container_image = "ghcr.io/karanjotvendal/miniflow:sha-abc1234"
-
-cpu    = "2"
-memory = "4Gi"
-
-miniflow_device = "cpu"
-release_id      = "gcp-staging-v1"
-```
-
----
-
-## Architecture
-
-```
-Internet
-    │
-    ▼
-┌─────────────────────────────────────┐
-│  Cloud Run                          │
-│  ┌───────────────────────────────┐  │
-│  │  Container: miniflow          │  │
-│  │  ├─ Port: 8000               │  │
-│  │  ├─ CPU: 2                   │  │
-│  │  ├─ Memory: 4Gi              │  │
-│  │  └─ Auto-scaling: 0-5        │  │
-│  └───────────────────────────────┘  │
-│                                     │
-│  Features:                          │
-│  ├─ HTTPS endpoint (auto-SSL)      │
-│  ├─ Load balancing                 │
-│  ├─ Auto-scaling                   │
-│  └─ Cloud Logging                  │
-└─────────────────────────────────────┘
-```
-
----
-
-## Cost Estimation
-
-### Cloud Run Pricing (approximate)
-
-| Resource | Free Tier | Paid Tier |
-|----------|-----------|-----------|
-| **CPU** | 180,000 vCPU-seconds/month | $0.00002400/vCPU-second |
-| **Memory** | 360,000 GiB-seconds/month | $0.00000250/GiB-second |
-| **Requests** | 2 million/month | $0.40/million |
-
-### MiniFlow Staging Estimate
-
-Assuming:
-- 1 container running continuously
-- 2 vCPU, 4Gi memory
-- Light traffic (testing only)
-
-**Cost: $0-10/month**
-
-- Mostly covered by free tier
-- If exceeding: ~$30-50/month for 24/7
-- Scale to zero when not testing: ~$0
-
----
-
-## Scaling Configuration
-
-### Auto-scaling Behavior
-
-```hcl
-# In main.tf
-metadata {
-  annotations = {
-    "autoscaling.knative.dev/minScale" = "0"  # Scale to zero
-    "autoscaling.knative.dev/maxScale" = "5"  # Max 5 instances
-  }
-}
-```
-
-| Setting | Behavior |
-|---------|----------|
-| `minScale = 0` | Scales to zero when no traffic (saves money) |
-| `minScale = 1` | Always keeps 1 instance warm (faster response) |
-| `maxScale = 5` | Never exceeds 5 instances (cost control) |
-
-### Container Concurrency
-
-```hcl
-# In main.tf
-spec {
-  container_concurrency = 10  # 10 requests per container
-}
-```
-
-- Each container handles up to 10 concurrent requests
-- Additional requests spin up new containers
-- Adjust based on your app's concurrency capabilities
-
----
-
-## Monitoring
-
-### View Logs
-
-```bash
-# Stream logs
-gcloud logging tail "run.googleapis.com%2Fminiflow" --format="value(textPayload)"
-
-# Or in Console: Cloud Logging → Logs Explorer
-```
-
-### View Metrics
-
-```bash
-# Console: Cloud Monitoring → Metrics Explorer
-# Metrics: run.googleapis.com/container/cpu/utilizations
-```
-
----
-
-## Troubleshooting
-
-### Issue: Service not deploying
-
-```bash
-# Check logs
-terraform apply  # Will show errors
-
-# Check Cloud Run logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=miniflow"
-```
-
-### Issue: Image not found
-
-```bash
-# Verify image exists
-docker pull ghcr.io/karanjotvendal/miniflow:sha-XXXXXXX
-
-# Or use GCR (Google Container Registry)
-# gcr.io/PROJECT_ID/miniflow:tag
-```
-
-### Issue: Out of memory
-
-```bash
-# Increase memory
-terraform apply -var "memory=8Gi"
-```
-
-### Issue: Slow cold start
-
-```bash
-# Set minScale to 1 to keep instance warm
-# Edit main.tf:
-# "autoscaling.knative.dev/minScale" = "1"
-```
-
----
+This ensures:
+- No orphaned resources
+- Faster deployment
+- Lower cost (no unnecessary resources)
 
 ## GitHub Actions Deployment
 
-### Setup
+The workflow supports three deployment modes:
 
-1. **Configure Workload Identity Federation**:
-   ```bash
-   # Create service account
-   gcloud iam service-accounts create github-actions \
-     --display-name="GitHub Actions"
+### Manual Trigger Options
 
-   # Grant permissions
-   gcloud projects add-iam-policy-binding PROJECT_ID \
-     --member="serviceAccount:github-actions@PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/run.admin"
+| Option | Description |
+|--------|-------------|
+| **cpu** | Deploy to Cloud Run (always works) |
+| **gpu** | Deploy to Compute Engine with GPU (requires available zone) |
+| **auto** | Try GPU first, fallback to CPU if unavailable |
 
-   gcloud projects add-iam-policy-binding PROJECT_ID \
-     --member="serviceAccount:github-actions@PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/iam.serviceAccountUser"
-   ```
+### Usage
 
-2. **Configure Workload Identity Pool** (for OIDC):
-   ```bash
-   # Follow: https://github.com/google-github-actions/auth#setup
-   ```
+1. Go to **Actions** → **Deploy Staging (GCP)**
+2. Click **Run workflow**
+3. Select deployment type:
+   - `cpu` - Guaranteed to work
+   - `gpu` - Needs available GPU zone
+   - `auto` - Best of both worlds
+4. Enter image tag (e.g., `sha-abc1234` or `main`)
+5. (Optional) Select GPU type for GPU deployments
+6. Click **Run workflow**
 
-3. **Add GitHub Secrets**:
-   - `GCP_PROJECT_ID`: Your project ID
-   - `GCP_WORKLOAD_IDENTITY_PROVIDER`: Workload identity provider resource name
-   - `GCP_SERVICE_ACCOUNT`: Service account email
+## GPU Types Comparison
 
-### Trigger Deployment
+| GPU | Memory | Relative Speed | Cost/hour | Availability |
+|-----|--------|----------------|-----------|--------------|
+| **P100** | 16GB | Baseline | ~$0.50 | ⭐⭐⭐⭐⭐ |
+| **T4** | 16GB | 1.3x | ~$0.54 | ⭐⭐⭐ |
+| **V100** | 16GB | 2.0x | ~$1.20 | ⭐⭐⭐ |
+| **A100** | 40GB | 4.0x | ~$2.50 | ⭐⭐ |
 
-```bash
-# Via GitHub UI
-# Actions → Deploy Staging (GCP) → Run workflow
+**Recommendation**: P100 offers the best balance of performance, cost, and availability for MiniFlow.
 
-# Via CLI
-gh workflow run deploy-staging-gcp.yml -f image_tag=sha-abc1234
-```
+## Variables
 
----
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `project_id` | GCP project ID | Required |
+| `region` | GCP region | `us-central1` |
+| `deployment_type` | cpu, gpu, or auto | `cpu` |
+| `container_image` | Container image URL | Required |
+| `gpu_zone` | Zone with GPU availability | `us-central1-b` |
+| `gpu_type` | GPU accelerator type | `nvidia-tesla-p100` |
+| `gpu_count` | Number of GPUs | `1` |
+| `miniflow_device` | Device (cpu/cuda) | `cpu` |
+| `miniflow_config` | Config file path | `configs/3_TTS-to-vibevoice.yml` |
 
-## Comparison with AWS
+## Outputs
 
-| Feature | AWS ECS Fargate | GCP Cloud Run |
-|---------|-----------------|---------------|
-| **Setup complexity** | High (15+ resources) | Low (3 resources) |
-| **Load balancer** | Separate (ALB) | Built-in |
-| **SSL** | Manual (ACM) | Automatic |
-| **Scaling** | Configurable | Automatic |
-| **Scale to zero** | No | Yes |
-| **Pricing** | Per task/hour | Per request + compute time |
-| **GPU support** | Yes (ECS on EC2) | No (use GCE for GPU) |
+| Output | Description |
+|--------|-------------|
+| `service_url` | Cloud Run service URL |
+| `gpu_instance_url` | GPU instance URL |
+| `gpu_instance_public_ip` | GPU instance IP |
+| `gpu_zone_used` | Zone where GPU was deployed |
 
----
+## Troubleshooting
 
-## Next Steps
+### ZONE_RESOURCE_POOL_EXHAUSTED
+GPU capacity is full in that zone. The zone finder will automatically try other zones.
 
-1. **Test locally**: `docker-compose up`
-2. **Push image**: Let CI/CD push to GHCR
-3. **Deploy to GCP**: Run GitHub Actions workflow
-4. **Test endpoints**: Verify `/health` and `/ready`
-5. **Monitor**: Check Cloud Logging
-6. **Iterate**: Deploy new versions with new image tags
+### QUOTA_EXCEEDED
+Request quota increase at: https://console.cloud.google.com/iam-admin/quotas
 
----
+### GPU not supported in zone
+Some zones don't support certain GPU types. The zone finder handles this.
 
-## Resources
+## Costs
 
-- [Cloud Run Documentation](https://cloud.google.com/run/docs)
-- [Cloud Run Pricing](https://cloud.google.com/run/pricing)
-- [Terraform Google Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
-- [GitHub Actions for GCP](https://github.com/google-github-actions)
+### Cloud Run (CPU)
+- Free tier: 2M requests/month, 360,000 vCPU-seconds, 180,000 GiB-seconds
+- Beyond free: ~$0.00002400/vCPU-second, ~$0.00000250/GiB-second
+
+### Compute Engine with GPU
+- P100 preemptible: ~$0.35/hour (~$8.40/day)
+- P100 standard: ~$0.50/hour (~$12/day)
+- Includes: 4 vCPU, 15GB RAM, 50GB SSD
+
+**With $300 credit:**
+- GPU demo for 3-4 days: ~$25-50
+- CPU-only for months: ~$0-20

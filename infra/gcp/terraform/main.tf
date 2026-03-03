@@ -20,8 +20,10 @@ resource "google_project_service" "container_registry" {
   disable_on_destroy = false
 }
 
-# Cloud Run service
+# Cloud Run service (CPU deployment)
+# Only created when deployment_type is "cpu" or "auto" (fallback)
 resource "google_cloud_run_service" "miniflow" {
+  count    = var.deployment_type == "cpu" || var.deployment_type == "auto" ? 1 : 0
   name     = local.service_name
   location = var.region
 
@@ -91,10 +93,11 @@ resource "google_cloud_run_service" "miniflow" {
   depends_on = [google_project_service.run]
 }
 
-# Allow public access to the service
+# Allow public access to the service (only when Cloud Run is created)
 resource "google_cloud_run_service_iam_member" "public" {
-  service  = google_cloud_run_service.miniflow.name
-  location = google_cloud_run_service.miniflow.location
+  count    = var.deployment_type == "cpu" || var.deployment_type == "auto" ? 1 : 0
+  service  = google_cloud_run_service.miniflow[0].name
+  location = google_cloud_run_service.miniflow[0].location
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -136,7 +139,7 @@ resource "google_billing_budget" "monthly" {
 # Notification channel for budget alerts
 data "google_billing_account" "account" {
   count               = var.project_id != "" ? 1 : 0
-  billing_account     = "your-billing-account-id"  # Replace with your billing account
+  billing_account     = "01413B-39FB78-6C67C1"  # Replace with your billing account
   open                = true
 }
 
@@ -146,6 +149,6 @@ resource "google_monitoring_notification_channel" "email" {
   type         = "email"
 
   labels = {
-    email_address = "your-email@example.com"  # Replace with your email
+    email_address = "karanjotgharu60@gmail.com"  # Replace with your email
   }
 }

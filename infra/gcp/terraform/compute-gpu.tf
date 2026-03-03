@@ -3,11 +3,12 @@
 
 locals {
   gpu_instance_name = "${var.service_name}-gpu"
-  gpu_zone          = "${var.region}-a"  # us-central1-a, etc.
 }
 
 # Firewall rule to allow HTTP traffic to GPU instance
+# Only created when deployment_type is "gpu"
 resource "google_compute_firewall" "allow_miniflow_gpu" {
+  count    = var.deployment_type == "gpu" ? 1 : 0
   name    = "${local.gpu_instance_name}-http"
   network = "default"
 
@@ -21,10 +22,12 @@ resource "google_compute_firewall" "allow_miniflow_gpu" {
 }
 
 # Compute Engine instance with GPU
+# Only created when deployment_type is "gpu"
 resource "google_compute_instance" "miniflow_gpu" {
+  count        = var.deployment_type == "gpu" ? 1 : 0
   name         = local.gpu_instance_name
   machine_type = "n1-standard-4"  # 4 vCPU, 15GB RAM
-  zone         = local.gpu_zone
+  zone         = var.gpu_zone      # Zone with available GPU capacity
 
   tags = [local.gpu_instance_name]
 
@@ -37,10 +40,10 @@ resource "google_compute_instance" "miniflow_gpu" {
     }
   }
 
-  # Attach NVIDIA T4 GPU
+  # Attach NVIDIA P100 GPU
   guest_accelerator {
-    type  = "nvidia-tesla-t4"  # 16GB GPU memory
-    count = 1
+    type  = var.gpu_type       # P100 is more available than T4
+    count = var.gpu_count
   }
 
   # Required for GPU instances
@@ -53,7 +56,7 @@ resource "google_compute_instance" "miniflow_gpu" {
   # Network configuration
   network_interface {
     network = "default"
-    
+
     access_config {
       # Ephemeral public IP
       # Note: For production, use static IP
@@ -102,20 +105,4 @@ EOF
     service     = "miniflow"
     type        = "gpu"
   }
-}
-
-# Output the public IP
-output "gpu_instance_public_ip" {
-  description = "Public IP of the GPU instance"
-  value       = google_compute_instance.miniflow_gpu.network_interface[0].access_config[0].nat_ip
-}
-
-output "gpu_instance_ssh_command" {
-  description = "Command to SSH into the GPU instance"
-  value       = "gcloud compute ssh ${google_compute_instance.miniflow_gpu.name} --zone=${local.gpu_zone} --project=${var.project_id}"
-}
-
-output "gpu_instance_url" {
-  description = "URL to access MiniFlow on GPU instance"
-  value       = "http://${google_compute_instance.miniflow_gpu.network_interface[0].access_config[0].nat_ip}:8000"
 }

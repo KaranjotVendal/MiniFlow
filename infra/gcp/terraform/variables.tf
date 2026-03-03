@@ -49,3 +49,29 @@ variable "release_id" {
   type        = string
   default     = "gcp-staging"
 }
+
+# Deployment Configuration
+variable "deployment_type" {
+  description = "Deployment type: cpu (Cloud Run), gpu (Compute Engine), auto (GPU if available else CPU)"
+  type        = string
+  default     = "cpu"
+}
+
+# GPU Configuration
+variable "gpu_zone" {
+  description = "Zone with available GPU capacity"
+  type        = string
+  default     = "us-central1-b"
+}
+
+variable "gpu_type" {
+  description = "GPU accelerator type (nvidia-tesla-p100, nvidia-tesla-t4, etc.)"
+  type        = string
+  default     = "nvidia-tesla-p100"
+}
+
+variable "gpu_count" {
+  description = "Number of GPUs to attach"
+  type        = number
+  default     = 1
+}
