@@ -89,7 +89,9 @@ for zone in "${ZONES[@]}"; do
     # Try to create a test instance
     # Use preemptible for faster/cheaper test
     # Use --async with timeout to avoid hanging
-    # Capture both stdout and stderr in one call
+    # Capture both stdout and stderr without exiting on non-zero status
+    CREATE_RESULT=0
+    set +e
     CREATE_OUTPUT=$(gcloud compute instances create gpu-test-$$ \
         --zone="$zone" \
         --machine-type="$MACHINE_TYPE" \
@@ -101,8 +103,8 @@ for zone in "${ZONES[@]}"; do
         --async \
         --timeout=300 \
         --format="none" 2>&1)
-
     CREATE_RESULT=$?
+    set -e
 
     # Check if create command itself failed (non-zero exit)
     if [ $CREATE_RESULT -ne 0 ]; then
