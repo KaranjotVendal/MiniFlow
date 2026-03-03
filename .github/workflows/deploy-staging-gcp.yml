@@ -93,33 +93,40 @@ jobs:
                 --timeout=300 \
                 --format="none" 2>/dev/null; then
 
-              # Wait briefly and check if instance was created successfully
-              sleep 10
+              # Poll for RUNNING status (instance may take time to provision)
+              echo -n "Waiting for instance... "
+              for i in {1..12}; do
+                sleep 10
+                STATUS=$(gcloud compute instances describe gpu-test-${{ github.run_id }} \
+                    --zone="$zone" \
+                    --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+                if [ "$STATUS" = "RUNNING" ]; then
+                  break
+                fi
+                echo -n "."
+              done
+              echo ""
 
-              # Verify instance exists and is running
-              if gcloud compute instances describe gpu-test-${{ github.run_id }} \
-                  --zone="$zone" \
-                  --format="value(status)" 2>/dev/null | grep -q "RUNNING"; then
-
+              # Verify instance is running
+              if [ "$STATUS" = "RUNNING" ]; then
                 # Success! Delete test instance
                 gcloud compute instances delete gpu-test-${{ github.run_id }} \
                   --zone="$zone" \
                   --quiet 2>/dev/null || true
 
-                echo "✅ AVAILABLE"
+                echo "AVAILABLE"
                 GPU_AVAILABLE="true"
                 SELECTED_ZONE="$zone"
                 break
               else
                 # Instance failed to provision - continue to next zone
-                echo "❌ Failed to provision"
+                echo "FAILED TO PROVISION"
                 gcloud compute instances delete gpu-test-${{ github.run_id }} \
                   --zone="$zone" \
                   --quiet 2>/dev/null || true
               fi
-              # Note: break only happens in success case above
             else
-              echo "❌ Not available"
+              echo "NOT AVAILABLE"
             fi
           done
 
@@ -128,10 +135,10 @@ jobs:
 
           if [ "$GPU_AVAILABLE" == "true" ]; then
             echo ""
-            echo "🎯 Found available zone: $SELECTED_ZONE"
+            echo "Found available zone: $SELECTED_ZONE"
           else
             echo ""
-            echo "⚠️ No GPU zones available"
+            echo "No GPU zones available"
           fi
 
   deploy:
