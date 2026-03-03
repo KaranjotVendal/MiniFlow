@@ -89,7 +89,8 @@ for zone in "${ZONES[@]}"; do
     # Try to create a test instance
     # Use preemptible for faster/cheaper test
     # Use --async with timeout to avoid hanging
-    if gcloud compute instances create gpu-test-$$ \
+    # Capture both stdout and stderr in one call
+    CREATE_OUTPUT=$(gcloud compute instances create gpu-test-$$ \
         --zone="$zone" \
         --machine-type="$MACHINE_TYPE" \
         --accelerator="type=$GPU_TYPE,count=$GPU_COUNT" \
@@ -99,79 +100,76 @@ for zone in "${ZONES[@]}"; do
         --quiet \
         --async \
         --timeout=300 \
-        --format="none" 2>/dev/null; then
+        --format="none" 2>&1)
 
-        # Wait for instance to provision
-        sleep 15
+    CREATE_RESULT=$?
 
-        # Check if instance is running
-        INSTANCE_STATUS=$(gcloud compute instances describe gpu-test-$$ \
-            --zone="$zone" \
-            --project="$PROJECT_ID" \
-            --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
-
-        if [ "$INSTANCE_STATUS" = "RUNNING" ]; then
-            # Success! Delete the test instance
-            gcloud compute instances delete gpu-test-$$ \
-                --zone="$zone" \
-                --project="$PROJECT_ID" \
-                --quiet 2>/dev/null || true
-
-            echo -e "${GREEN}✓ AVAILABLE${NC}"
-            echo ""
-            echo -e "${GREEN}===================================${NC}"
-            echo -e "${GREEN}FOUND AVAILABLE ZONE!${NC}"
-            echo -e "${GREEN}===================================${NC}"
-            echo ""
-            echo "Zone: $zone"
-            echo ""
-            echo "Deploy with Terraform:"
-            echo "  terraform apply -var='gpu_zone=$zone'"
-            echo ""
-            echo "Or deploy with gcloud:"
-            echo "  gcloud compute instances create miniflow-gpu \\"
-            echo "    --zone=$zone \\"
-            echo "    --machine-type=$MACHINE_TYPE \\"
-            echo "    --accelerator=type=$GPU_TYPE,count=$GPU_COUNT \\"
-            echo "    --maintenance-policy=TERMINATE \\"
-            echo "    --preemptible"
-            echo ""
-
-            # Export for use in other scripts
-            echo "export GPU_ZONE=\"$zone\""
-
-            exit 0
-        else
-            # Instance didn't reach RUNNING state
-            echo -e "${RED}✗ Failed to provision${NC}"
-            # Clean up if partially created
-            gcloud compute instances delete gpu-test-$$ \
-                --zone="$zone" \
-                --project="$PROJECT_ID" \
-                --quiet 2>/dev/null || true
-        fi
-    else
-        # Check the specific error
-        error_output=$(gcloud compute instances create gpu-test-$$ \
-            --zone="$zone" \
-            --machine-type="$MACHINE_TYPE" \
-            --accelerator="type=$GPU_TYPE,count=$GPU_COUNT" \
-            --maintenance-policy=TERMINATE \
-            --preemptible \
-            --project="$PROJECT_ID" \
-            --quiet 2>&1 || true)
-
-        if echo "$error_output" | grep -q "ZONE_RESOURCE_POOL_EXHAUSTED"; then
-            echo -e "${RED}✗ Exhausted${NC}"
-        elif echo "$error_output" | grep -q "QUOTA_EXCEEDED"; then
-            echo -e "${YELLOW} Quota exceeded${NC}"
+    # Check if create command itself failed (non-zero exit)
+    if [ $CREATE_RESULT -ne 0 ]; then
+        # Creation command failed - check error type
+        if echo "$CREATE_OUTPUT" | grep -q "ZONE_RESOURCE_POOL_EXHAUSTED"; then
+            echo -e "${RED}EXHAUSTED${NC}"
+        elif echo "$CREATE_OUTPUT" | grep -q "QUOTA_EXCEEDED"; then
+            echo -e "${YELLOW} QUOTA EXCEEDED${NC}"
             echo -e "${YELLOW}  Request quota: https://console.cloud.google.com/iam-admin/quotas${NC}"
             exit 1
-        elif echo "$error_output" | grep -q "not supported"; then
-            echo -e "${YELLOW} GPU not supported${NC}"
+        elif echo "$CREATE_OUTPUT" | grep -q "not supported"; then
+            echo -e "${YELLOW} NOT SUPPORTED${NC}"
         else
-            echo -e "${RED}✗ Failed${NC}"
+            echo -e "${RED} FAILED${NC}"
         fi
+        # Continue to next zone
+        continue
+    fi
+
+    # Creation command succeeded - wait for instance to provision
+    sleep 15
+
+    # Check if instance is running
+    INSTANCE_STATUS=$(gcloud compute instances describe gpu-test-$$ \
+        --zone="$zone" \
+        --project="$PROJECT_ID" \
+        --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+
+    if [ "$INSTANCE_STATUS" = "RUNNING" ]; then
+        # Success! Delete the test instance
+        gcloud compute instances delete gpu-test-$$ \
+            --zone="$zone" \
+            --project="$PROJECT_ID" \
+            --quiet 2>/dev/null || true
+
+        echo -e "${GREEN}AVAILABLE${NC}"
+        echo ""
+        echo -e "${GREEN}===================================${NC}"
+        echo -e "${GREEN}FOUND AVAILABLE ZONE${NC}"
+        echo -e "${GREEN}===================================${NC}"
+        echo ""
+        echo "Zone: $zone"
+        echo ""
+        echo "Deploy with Terraform:"
+        echo "  terraform apply -var='gpu_zone=$zone'"
+        echo ""
+        echo "Or deploy with gcloud:"
+        echo "  gcloud compute instances create miniflow-gpu \\"
+        echo "    --zone=$zone \\"
+        echo "    --machine-type=$MACHINE_TYPE \\"
+        echo "    --accelerator=type=$GPU_TYPE,count=$GPU_COUNT \\"
+        echo "    --maintenance-policy=TERMINATE \\"
+        echo "    --preemptible"
+        echo ""
+
+        # Export for use in other scripts
+        echo "export GPU_ZONE=\"$zone\""
+
+        exit 0
+    else
+        # Instance didn't reach RUNNING state
+        echo -e "${RED} FAILED TO PROVISION${NC}"
+        # Clean up if partially created
+        gcloud compute instances delete gpu-test-$$ \
+            --zone="$zone" \
+            --project="$PROJECT_ID" \
+            --quiet 2>/dev/null || true
     fi
 done
 
