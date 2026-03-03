@@ -34,6 +34,7 @@ env:
 permissions:
   contents: read
   id-token: write
+  packages: read
 
 # Prevent concurrent deployments to avoid conflicts
 concurrency:
