@@ -2,9 +2,11 @@ import json
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
+
 import yaml
 
 from src.benchmark.runner.experiment_runner import ExperimentRunner
+from src.config.inspect_config import inspect_config
 from src.config.load_config import load_yaml_config
 from src.logger.logging import initialise_logger
 
@@ -52,8 +54,12 @@ def _sweep_summary(sweep_name: str, sweep_folder: Path, sweep_results: list[dict
             "asr_latency_mean": _extract_metric_value(asr, "latency", "inference_seconds"),
             "llm_latency_mean": _extract_metric_value(llm, "latency", "inference_seconds"),
             "tts_latency_mean": _extract_metric_value(tts, "latency", "inference_seconds"),
-            "total_latency_mean": _extract_metric_value(pipeline, "latency", "trial_wall_time_seconds"),
-            "total_model_load_time_mean": _extract_metric_value(pipeline, "load_times", "total_model_load_time_seconds"),
+            "total_latency_mean": _extract_metric_value(
+                pipeline, "latency", "trial_wall_time_seconds"
+            ),
+            "total_model_load_time_mean": _extract_metric_value(
+                pipeline, "load_times", "total_model_load_time_seconds"
+            ),
             "asr_wer_mean": _extract_metric_value(asr, "quality", "wer"),
             "tts_utmos_mean": _extract_metric_value(tts, "quality", "utmos"),
             "llm_tokens_per_sec_mean": _extract_metric_value(llm, "inference", "tokens_per_sec"),
@@ -121,8 +127,8 @@ def run_sweep(sweep_config_path: str | Path) -> None:
         exp_name = config_path.stem
         logger.info(f"\n==== Running experiment: {exp_name} ===")
 
-        # Load full experiment configuration
-        _config = load_yaml_config(config_path)
+        # Load and normalize experiment configuration
+        _config = inspect_config(config_path)
 
         # Create and run experiment
         runner = ExperimentRunner.from_config(_config, sweep_folder)
@@ -160,7 +166,7 @@ def main():
     logger.info(f"Starting sweep with config: {config_path}")
 
     if args.dry_run:
-        config = load_sweep_config(config_path)
+        config = load_yaml_config(config_path)
         logger.info("Dry run enabled. Config loaded successfully:")
         logger.info(f"  Sweep name: {config['sweep_name']}")
         logger.info(f"  Experiments: {len(config['sweep'])}")

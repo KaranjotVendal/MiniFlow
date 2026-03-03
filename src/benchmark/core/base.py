@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable
+from enum import StrEnum
+from typing import Any
 
 
-class Stage(str, Enum):
+class Stage(StrEnum):
     """Pipeline stages for metric collection context.
 
     Attributes:
@@ -120,9 +121,7 @@ class BaseMetric(ABC):
 
         Metrics that support explicit typed exchange should override this.
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement to_result()."
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement to_result().")
 
 
 class BaseCollector(ABC):

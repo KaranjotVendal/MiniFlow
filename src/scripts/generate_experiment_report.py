@@ -2,6 +2,7 @@ import argparse
 
 from src.report.report_generator import generate_experiment_report
 
+
 # TODO: refactor w.r.t new benchmark framework
 def main():
     parser = argparse.ArgumentParser(description="Geneate benchmark experiment report")

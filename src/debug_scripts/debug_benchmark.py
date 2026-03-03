@@ -1,8 +1,8 @@
 # run_benchmark_one_sample.py
 from pathlib import Path
 
-from src.config.inspect_config import inspect_config
 from src.benchmark.runner.experiment_runner import ExperimentRunner
+from src.config.inspect_config import inspect_config
 
 
 def main():

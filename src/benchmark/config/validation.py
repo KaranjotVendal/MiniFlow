@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 
+# TODO: this file also can be resolved by introducing a specific dataclass to load configs
 @dataclass
 class MetricConfig:
     """Configuration for individual metrics.

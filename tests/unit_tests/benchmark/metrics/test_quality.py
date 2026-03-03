@@ -1,14 +1,14 @@
 import pytest
 import torch
 
-from src.benchmark.core.base import MetricContext, Stage
 from src.benchmark.core.registry import MetricRegistry
 from src.benchmark.metrics.quality import (
     QualityMetrics,
-    WEREvaluator,
     UTMOSEvaluator,
+    WEREvaluator,
     get_evaluator,
 )
+from tests.conftest import requires_ffmpeg
 
 
 def test_registers_quality():
@@ -54,6 +54,7 @@ def test_wer_evaluator_name():
     assert evaluator.NAME == "wer"
 
 
+@requires_ffmpeg
 @pytest.mark.parametrize(
     "waveform,sample_rate",
     [
@@ -140,6 +141,7 @@ def test_wer_evaluation(prediction, reference, expected_score):
     assert scores["wer"] == expected_score
 
 
+@requires_ffmpeg
 def test_utmos_evaluation(tmp_path):
     """Test evaluating UTMOS through QualityMetrics."""
     metric = QualityMetrics({"evaluators": ["utmos"]})
@@ -149,6 +151,7 @@ def test_utmos_evaluation(tmp_path):
     assert isinstance(scores["utmos"], float)
 
 
+@requires_ffmpeg
 def test_multiple_evaluators(tmp_path):
     """Test evaluating with multiple evaluators."""
     metric = QualityMetrics({"evaluators": ["wer", "utmos"]})

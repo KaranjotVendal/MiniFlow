@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 import torch
 from transformers import pipeline
 
-from src.utils import clear_gpu_cache
 from src.logger.logging import initialise_logger
+from src.utils import clear_gpu_cache
 
 if TYPE_CHECKING:
     from src.benchmark.collectors import BenchmarkCollector
@@ -27,6 +27,9 @@ def run_asr(
     load_closed = False
     pipe = None
     audio = {"array": audio_tensor.squeeze().numpy(), "sampling_rate": sampling_rate}
+
+    # Try with requested device first, fall back to CPU on CUDA errors
+    cuda_failed = False
 
     try:
         collector.hardware_metrics.start(collector.context)
@@ -60,10 +63,37 @@ def run_asr(
             load_event["success"] = True
         load_closed = True
 
-
         collector.hardware_metrics.start(collector.context)
         collector.timing_metrics.record_stage_start("asr_inference_latency")
-        pred = pipe(audio)
+        try:
+            pred = pipe(audio)
+        except RuntimeError as e:
+            # Check if it's a CUDA error and we haven't tried CPU yet
+            if "CUDA" in str(e) and device != "cpu" and not cuda_failed:
+                logger.warning(f"CUDA error in ASR inference: {e}. Retrying with CPU.")
+                cuda_failed = True
+                # Recreate pipeline on CPU
+                del pipe
+                pipe = pipeline(
+                    "automatic-speech-recognition",
+                    model=config["model_id"],
+                    device="cpu",
+                    return_timestamps=False,
+                    generate_kwargs={
+                        "language": "en",
+                        "task": "transcribe",
+                        "forced_decoder_ids": None,
+                    },
+                )
+                # Update audio to CPU format if needed
+                audio = {
+                    "array": audio_tensor.squeeze().cpu().numpy(),
+                    "sampling_rate": sampling_rate,
+                }
+                pred = pipe(audio)
+                device = "cpu"
+            else:
+                raise
         collector.timing_metrics.record_stage_end("asr_inference_latency")
         collector.record_phase_metrics(
             "asr_inference_gpu_metrics",
@@ -71,7 +101,9 @@ def run_asr(
         )
 
         transcription = pred["text"]
-        wer_score: dict[str, float] = collector.quality_metrics.evaluate(evaluator="wer", prediction=transcription, reference=groundtruth)
+        wer_score: dict[str, float] = collector.quality_metrics.evaluate(
+            evaluator="wer", prediction=transcription, reference=groundtruth
+        )
         collector.current_trial.quality.wer = wer_score["wer"]
 
         return transcription
