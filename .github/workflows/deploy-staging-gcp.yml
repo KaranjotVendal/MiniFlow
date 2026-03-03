@@ -103,7 +103,6 @@ jobs:
                 --preemptible \
                 --quiet \
                 --async \
-                --timeout=300 \
                 --format="none" 2>/dev/null; then
 
               # Poll for RUNNING status (instance may take time to provision)

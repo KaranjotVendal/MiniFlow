@@ -115,7 +115,6 @@ for zone in "${ZONES[@]}"; do
         --project="$PROJECT_ID" \
         --quiet \
         --async \
-        --timeout=300 \
         --format="none" 2>&1)
     CREATE_RESULT=$?
     set -e
