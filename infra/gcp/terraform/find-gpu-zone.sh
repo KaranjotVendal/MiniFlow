@@ -123,13 +123,20 @@ for zone in "${ZONES[@]}"; do
     fi
 
     # Creation command succeeded - wait for instance to provision
-    sleep 15
-
-    # Check if instance is running
-    INSTANCE_STATUS=$(gcloud compute instances describe gpu-test-$$ \
-        --zone="$zone" \
-        --project="$PROJECT_ID" \
-        --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+    # Poll for RUNNING status (instance may take time to provision)
+    echo -n "Waiting for instance... "
+    for i in {1..12}; do
+        sleep 10
+        INSTANCE_STATUS=$(gcloud compute instances describe gpu-test-$$ \
+            --zone="$zone" \
+            --project="$PROJECT_ID" \
+            --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+        if [ "$INSTANCE_STATUS" = "RUNNING" ]; then
+            break
+        fi
+        echo -n "."
+    done
+    echo ""
 
     if [ "$INSTANCE_STATUS" = "RUNNING" ]; then
         # Success! Delete the test instance
