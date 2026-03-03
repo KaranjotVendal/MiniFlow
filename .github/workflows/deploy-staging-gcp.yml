@@ -44,6 +44,7 @@ concurrency:
 jobs:
   find-gpu-zone:
     runs-on: ubuntu-latest
+    environment: miniflow
     if: github.event.inputs.deployment_type == 'gpu' || github.event.inputs.deployment_type == 'auto'
     outputs:
       gpu_zone: ${{ steps.find-zone.outputs.gpu_zone }}
@@ -155,6 +156,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    environment: miniflow
     needs: find-gpu-zone
     if: always() && (needs.find-gpu-zone.result == 'success' || needs.find-gpu-zone.result == 'skipped')
 
