@@ -75,3 +75,16 @@ variable "gpu_count" {
   type        = number
   default     = 1
 }
+
+# Alert Configuration
+variable "alert_email" {
+  description = "Email address for budget alerts"
+  type        = string
+  default     = "karanjotgharu60@gmail.com"
+}
+
+variable "billing_account_id" {
+  description = "GCP billing account ID"
+  type        = string
+  default     = "01413B-39FB78-6C67C1"
+}

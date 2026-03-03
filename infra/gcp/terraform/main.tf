@@ -139,7 +139,7 @@ resource "google_billing_budget" "monthly" {
 # Notification channel for budget alerts
 data "google_billing_account" "account" {
   count               = var.project_id != "" ? 1 : 0
-  billing_account     = "01413B-39FB78-6C67C1"  # Replace with your billing account
+  billing_account     = var.billing_account_id
   open                = true
 }
 
@@ -149,6 +149,6 @@ resource "google_monitoring_notification_channel" "email" {
   type         = "email"
 
   labels = {
-    email_address = "karanjotgharu60@gmail.com"  # Replace with your email
+    email_address = var.alert_email
   }
 }
