@@ -51,6 +51,7 @@ The service account itself needs project-level roles for the resources you manag
 For this repo's deployment workflow, minimum roles are:
 
 - `roles/serviceusage.serviceUsageAdmin` (for `google_project_service` resources)
+- `roles/artifactregistry.admin` (mirror/push deploy images into Artifact Registry)
 - `roles/run.admin` (Cloud Run)
 - `roles/compute.admin` (GPU Compute Engine path)
 - `roles/iam.serviceAccountUser` (commonly required for service operations)
@@ -106,6 +107,7 @@ Script path:
 #### On project (for service account)
 
 - `roles/serviceusage.serviceUsageAdmin`
+- `roles/artifactregistry.admin`
 - `roles/run.admin`
 - `roles/compute.admin`
 - `roles/iam.serviceAccountUser`
@@ -144,6 +146,7 @@ You should see log lines such as:
 - `Granting service-account-level role roles/iam.workloadIdentityUser ...`
 - `Granting service-account-level role roles/iam.serviceAccountTokenCreator ...`
 - `Granting project-level role roles/serviceusage.serviceUsageAdmin ...`
+- `Granting project-level role roles/artifactregistry.admin ...`
 - `Granting project-level role roles/run.admin ...`
 - `Granting project-level role roles/compute.admin ...`
 
@@ -182,6 +185,7 @@ gcloud projects get-iam-policy miniflow-489011 \
 You should see at least:
 
 - `roles/serviceusage.serviceUsageAdmin`
+- `roles/artifactregistry.admin`
 - `roles/run.admin`
 - `roles/compute.admin`
 - `roles/iam.serviceAccountUser`

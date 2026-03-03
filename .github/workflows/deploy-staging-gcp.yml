@@ -29,6 +29,7 @@ on:
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: us-central1
+  GAR_REPOSITORY: miniflow
   TF_DIR: infra/gcp/terraform
 
 permissions:
@@ -199,25 +200,60 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Verify container image exists
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Verify container image exists in GHCR
         id: image-info
         run: |
           # Docker requires lowercase repository path
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER}/miniflow:${{ github.event.inputs.image_tag }}"
-          echo "Verifying image: ${IMAGE}"
-          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          SOURCE_IMAGE="ghcr.io/${OWNER}/miniflow:${{ github.event.inputs.image_tag }}"
+          echo "Verifying image: ${SOURCE_IMAGE}"
+          echo "source_image=${SOURCE_IMAGE}" >> $GITHUB_OUTPUT
 
           # Log in to GHCR
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           # Try to pull the image to verify it exists
-          if docker pull "${IMAGE}"; then
+          if docker pull "${SOURCE_IMAGE}"; then
             echo "Image verified successfully"
           else
-            echo "Error: Image ${IMAGE} not found in GHCR!"
+            echo "Error: Image ${SOURCE_IMAGE} not found in GHCR"
             exit 1
           fi
+
+      - name: Mirror image to Artifact Registry
+        id: gar-image
+        run: |
+          GAR_HOST="${{ env.GCP_REGION }}-docker.pkg.dev"
+          GAR_IMAGE="${GAR_HOST}/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/miniflow:${{ github.event.inputs.image_tag }}"
+
+          echo "Ensuring Artifact Registry API is enabled"
+          gcloud services enable artifactregistry.googleapis.com --project="${{ env.GCP_PROJECT_ID }}"
+
+          echo "Ensuring GAR repository exists: ${{ env.GAR_REPOSITORY }}"
+          if ! gcloud artifacts repositories describe "${{ env.GAR_REPOSITORY }}" \
+              --location="${{ env.GCP_REGION }}" \
+              --project="${{ env.GCP_PROJECT_ID }}" >/dev/null 2>&1; then
+            gcloud artifacts repositories create "${{ env.GAR_REPOSITORY }}" \
+              --repository-format=docker \
+              --location="${{ env.GCP_REGION }}" \
+              --description="MiniFlow staging container images" \
+              --project="${{ env.GCP_PROJECT_ID }}"
+          fi
+
+          echo "Configuring Docker auth for ${GAR_HOST}"
+          gcloud auth configure-docker "${GAR_HOST}" --quiet
+
+          echo "Tagging and pushing image to GAR"
+          docker tag "${{ steps.image-info.outputs.source_image }}" "${GAR_IMAGE}"
+          docker push "${GAR_IMAGE}"
+
+          echo "deploy_image=${GAR_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Deploy image: ${GAR_IMAGE}"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -240,7 +276,7 @@ jobs:
             -var "project_id=${{ env.GCP_PROJECT_ID }}" \
             -var "region=${{ env.GCP_REGION }}" \
             -var "deployment_type=cpu" \
-            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "container_image=${{ steps.gar-image.outputs.deploy_image }}" \
             -var "miniflow_device=cpu"
 
       - name: Terraform Plan (GPU)
@@ -253,7 +289,7 @@ jobs:
             -var "deployment_type=gpu" \
             -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
             -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
-            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "container_image=${{ steps.gar-image.outputs.deploy_image }}" \
             -var "miniflow_device=cuda"
 
       - name: Terraform Apply (CPU)
@@ -264,7 +300,7 @@ jobs:
             -var "project_id=${{ env.GCP_PROJECT_ID }}" \
             -var "region=${{ env.GCP_REGION }}" \
             -var "deployment_type=cpu" \
-            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "container_image=${{ steps.gar-image.outputs.deploy_image }}" \
             -var "miniflow_device=cpu"
 
       - name: Terraform Apply (GPU)
@@ -277,7 +313,7 @@ jobs:
             -var "deployment_type=gpu" \
             -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
             -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
-            -var "container_image=${{ steps.image-info.outputs.image }}" \
+            -var "container_image=${{ steps.gar-image.outputs.deploy_image }}" \
             -var "miniflow_device=cuda"
 
       - name: Get Service URL
@@ -327,7 +363,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployment Type**: ${{ steps.deploy-mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Service URL**: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: ${{ steps.image-info.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ steps.gar-image.outputs.deploy_image }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.deploy-mode.outputs.mode }}" == "gpu" ]; then
             echo "- **GPU Zone**: ${{ needs.find-gpu-zone.outputs.gpu_zone }}" >> $GITHUB_STEP_SUMMARY

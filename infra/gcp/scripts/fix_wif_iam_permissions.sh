@@ -151,6 +151,7 @@ add_sa_binding "roles/iam.serviceAccountTokenCreator"
 
 # Required by this repository's Terraform deployment workflow.
 add_project_binding_to_sa "roles/serviceusage.serviceUsageAdmin"
+add_project_binding_to_sa "roles/artifactregistry.admin"
 add_project_binding_to_sa "roles/run.admin"
 add_project_binding_to_sa "roles/compute.admin"
 add_project_binding_to_sa "roles/iam.serviceAccountUser"
