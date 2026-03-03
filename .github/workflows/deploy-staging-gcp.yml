@@ -172,18 +172,16 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}"
           echo "Verifying image: ${IMAGE}"
 
-          # Check if image exists using GHCR API
-          TOKEN=$(echo -n "x-access-token:${{ secrets.GITHUB_TOKEN }}" | base64)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://ghcr.io/v2/${{ github.repository_owner }}/miniflow/manifests/${{ github.event.inputs.image_tag }}")
+          # Log in to GHCR
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          if [ "$HTTP_CODE" != "200" ]; then
+          # Try to pull the image to verify it exists
+          if docker pull "${IMAGE}"; then
+            echo "Image verified successfully"
+          else
             echo "Error: Image ${IMAGE} not found in GHCR!"
-            echo "HTTP Response: ${HTTP_CODE}"
             exit 1
           fi
-          echo "Image verified successfully"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
