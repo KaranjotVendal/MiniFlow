@@ -68,7 +68,7 @@ jobs:
         id: find-zone
         working-directory: ${{ env.TF_DIR }}
         run: |
-          echo "🔍 Searching for available GPU zone..."
+          echo "Searching for available GPU zone..."
           echo "GPU Type: ${{ github.event.inputs.gpu_type }}"
           echo ""
 
