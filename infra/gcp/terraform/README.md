@@ -85,7 +85,10 @@ Terraform now only provisions the resources you need:
 |----------------|------------|
 | `cpu` | Cloud Run only |
 | `gpu` | Compute Engine GPU only |
-| `auto` | Cloud Run only (fallback from auto mode) |
+
+Note: The GitHub Actions workflow supports an `auto` mode that automatically
+selects GPU if available, otherwise falls back to CPU. Terraform receives
+either `cpu` or `gpu` from the workflow (never `auto`).
 
 This ensures:
 - No orphaned resources
