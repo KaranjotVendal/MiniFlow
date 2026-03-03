@@ -20,6 +20,12 @@ resource "google_project_service" "container_registry" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "compute" {
+  service = "compute.googleapis.com"
+
+  disable_on_destroy = false
+}
+
 # Cloud Run service (CPU deployment)
 # Only created when deployment_type is "cpu" or "auto" (fallback)
 resource "google_cloud_run_service" "miniflow" {

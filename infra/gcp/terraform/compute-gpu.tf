@@ -12,6 +12,8 @@ resource "google_compute_firewall" "allow_miniflow_gpu" {
   name    = "${local.gpu_instance_name}-http"
   network = "default"
 
+  depends_on = [google_project_service.compute]
+
   allow {
     protocol = "tcp"
     ports    = ["8000", "22"]
@@ -28,6 +30,8 @@ resource "google_compute_instance" "miniflow_gpu" {
   name         = local.gpu_instance_name
   machine_type = "n1-standard-4"  # 4 vCPU, 15GB RAM
   zone         = var.gpu_zone      # Zone with available GPU capacity
+
+  depends_on = [google_project_service.compute]
 
   tags = [local.gpu_instance_name]
 
