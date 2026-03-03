@@ -143,6 +143,30 @@ The workflow supports three deployment modes:
 | `gpu_count` | Number of GPUs | `1` |
 | `miniflow_device` | Device (cpu/cuda) | `cpu` |
 | `miniflow_config` | Config file path | `configs/3_TTS-to-vibevoice.yml` |
+| `gpu_driver_version` | NVIDIA driver version (empty for latest) | `""` |
+
+## Remote State (Optional)
+
+For team collaboration, enable remote state using GCS:
+
+1. Create a GCS bucket:
+   ```bash
+   gcloud storage buckets create gs://miniflow-terraform-state \
+     --location=us-central1
+   ```
+
+2. Uncomment the backend configuration in `versions.tf`:
+   ```hcl
+   backend "gcs" {
+     bucket = "miniflow-terraform-state"
+     prefix = "staging"
+   }
+   ```
+
+3. Reinitialize Terraform:
+   ```bash
+   terraform init
+   ```
 
 ## Outputs
 
