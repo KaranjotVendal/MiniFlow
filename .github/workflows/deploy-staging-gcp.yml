@@ -179,9 +179,13 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Verify container image exists
+        id: image-info
         run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}"
+          # Docker requires lowercase repository path
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/miniflow:${{ github.event.inputs.image_tag }}"
           echo "Verifying image: ${IMAGE}"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
 
           # Log in to GHCR
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -215,7 +219,7 @@ jobs:
             -var "project_id=${{ env.GCP_PROJECT_ID }}" \
             -var "region=${{ env.GCP_REGION }}" \
             -var "deployment_type=cpu" \
-            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
             -var "miniflow_device=cpu"
 
       - name: Terraform Plan (GPU)
@@ -228,7 +232,7 @@ jobs:
             -var "deployment_type=gpu" \
             -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
             -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
-            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
             -var "miniflow_device=cuda"
 
       - name: Terraform Apply (CPU)
@@ -239,7 +243,7 @@ jobs:
             -var "project_id=${{ env.GCP_PROJECT_ID }}" \
             -var "region=${{ env.GCP_REGION }}" \
             -var "deployment_type=cpu" \
-            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
             -var "miniflow_device=cpu"
 
       - name: Terraform Apply (GPU)
@@ -252,7 +256,7 @@ jobs:
             -var "deployment_type=gpu" \
             -var "gpu_zone=${{ needs.find-gpu-zone.outputs.gpu_zone }}" \
             -var "gpu_type=${{ github.event.inputs.gpu_type }}" \
-            -var "container_image=ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" \
+            -var "container_image=${{ steps.image-info.outputs.image }}" \
             -var "miniflow_device=cuda"
 
       - name: Get Service URL
@@ -288,7 +292,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployment Type**: ${{ steps.deploy-mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Service URL**: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: ghcr.io/${{ github.repository_owner }}/miniflow:${{ github.event.inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ steps.image-info.outputs.image }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.deploy-mode.outputs.mode }}" == "gpu" ]; then
             echo "- **GPU Zone**: ${{ needs.find-gpu-zone.outputs.gpu_zone }}" >> $GITHUB_STEP_SUMMARY
