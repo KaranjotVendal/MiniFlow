@@ -82,6 +82,20 @@ echo "Testing GPU availability in ${#ZONES[@]} zones..."
 echo "This may take a minute or two..."
 echo ""
 
+delete_test_instance() {
+    local zone="$1"
+    for attempt in {1..5}; do
+        if gcloud compute instances delete gpu-test-$$ \
+            --zone="$zone" \
+            --project="$PROJECT_ID" \
+            --quiet 2>/dev/null; then
+            return 0
+        fi
+        sleep 5
+    done
+    return 1
+}
+
 # Test each zone
 for zone in "${ZONES[@]}"; do
     echo -n "Testing $zone... "
@@ -142,10 +156,9 @@ for zone in "${ZONES[@]}"; do
 
     if [ "$INSTANCE_STATUS" = "RUNNING" ]; then
         # Success! Delete the test instance
-        gcloud compute instances delete gpu-test-$$ \
-            --zone="$zone" \
-            --project="$PROJECT_ID" \
-            --quiet 2>/dev/null || true
+        if ! delete_test_instance "$zone"; then
+            echo "Warning: could not delete test instance in $zone after retries"
+        fi
 
         echo -e "${GREEN}AVAILABLE${NC}"
         echo ""
@@ -175,10 +188,9 @@ for zone in "${ZONES[@]}"; do
         # Instance didn't reach RUNNING state
         echo -e "${RED} FAILED TO PROVISION${NC}"
         # Clean up if partially created
-        gcloud compute instances delete gpu-test-$$ \
-            --zone="$zone" \
-            --project="$PROJECT_ID" \
-            --quiet 2>/dev/null || true
+        if ! delete_test_instance "$zone"; then
+            echo "Warning: could not delete failed test instance in $zone after retries"
+        fi
     fi
 done
 

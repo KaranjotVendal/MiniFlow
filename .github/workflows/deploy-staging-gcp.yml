@@ -77,6 +77,19 @@ jobs:
           GPU_AVAILABLE="false"
           SELECTED_ZONE=""
 
+          delete_test_instance() {
+            local zone="$1"
+            for attempt in {1..5}; do
+              if gcloud compute instances delete gpu-test-${{ github.run_id }} \
+                --zone="$zone" \
+                --quiet 2>/dev/null; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
           for zone in "${ZONES[@]}"; do
             echo -n "Testing $zone... "
 
@@ -110,9 +123,9 @@ jobs:
               # Verify instance is running
               if [ "$STATUS" = "RUNNING" ]; then
                 # Success! Delete test instance
-                gcloud compute instances delete gpu-test-${{ github.run_id }} \
-                  --zone="$zone" \
-                  --quiet 2>/dev/null || true
+                if ! delete_test_instance "$zone"; then
+                  echo "Warning: could not delete test instance in $zone after retries"
+                fi
 
                 echo "AVAILABLE"
                 GPU_AVAILABLE="true"
@@ -121,9 +134,9 @@ jobs:
               else
                 # Instance failed to provision - continue to next zone
                 echo "FAILED TO PROVISION"
-                gcloud compute instances delete gpu-test-${{ github.run_id }} \
-                  --zone="$zone" \
-                  --quiet 2>/dev/null || true
+                if ! delete_test_instance "$zone"; then
+                  echo "Warning: could not delete failed test instance in $zone after retries"
+                fi
               fi
             else
               echo "NOT AVAILABLE"
