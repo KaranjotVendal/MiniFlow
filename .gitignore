@@ -25,3 +25,8 @@ src/.ipynb_checkpoints/
 # Archive AWS files (GCP migration - keep locally but don't commit)
 .github/workflows/deploy-staging.yml
 infra/aws/
+
+# Terraform
+infra/*/.terraform/
+infra/*/*.tfstate
+infra/*/*.tfstate.backup
