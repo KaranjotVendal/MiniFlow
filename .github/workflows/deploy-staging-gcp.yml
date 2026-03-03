@@ -158,6 +158,16 @@ jobs:
             echo "Deploying $DEPLOY_TYPE mode"
           fi
 
+      - name: Validate GPU zone
+        if: steps.deploy-mode.outputs.mode == 'gpu'
+        run: |
+          if [ -z "${{ needs.find-gpu-zone.outputs.gpu_zone }}" ]; then
+            echo "Error: No GPU zone available but GPU deployment requested"
+            echo "This can happen if all zones are exhausted"
+            exit 1
+          fi
+          echo "GPU zone validated: ${{ needs.find-gpu-zone.outputs.gpu_zone }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 
