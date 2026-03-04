@@ -155,6 +155,7 @@ add_project_binding_to_sa "roles/artifactregistry.admin"
 add_project_binding_to_sa "roles/run.admin"
 add_project_binding_to_sa "roles/compute.admin"
 add_project_binding_to_sa "roles/iam.serviceAccountUser"
+add_project_binding_to_sa "roles/iam.serviceAccountAdmin"
 
 echo ""
 echo "Done. Current service account IAM policy:"
