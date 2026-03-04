@@ -5,6 +5,22 @@ locals {
   gpu_instance_name = "${var.service_name}-gpu"
 }
 
+# Service account for GPU VM to access GAR
+resource "google_service_account" "miniflow_gpu" {
+  count        = var.deployment_type == "gpu" ? 1 : 0
+  account_id   = "${var.service_name}-gpu"
+  display_name = "MiniFlow GPU Service Account"
+  description  = "Service account for MiniFlow GPU instance to pull images from Artifact Registry"
+}
+
+# Grant GPU service account permission to read from Artifact Registry
+resource "google_project_iam_member" "miniflow_gpu_gar_reader" {
+  count   = var.deployment_type == "gpu" ? 1 : 0
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.miniflow_gpu[0].email}"
+}
+
 # Firewall rule to allow HTTP traffic to GPU instance
 # Only created when deployment_type is "gpu"
 resource "google_compute_firewall" "allow_miniflow_gpu" {
@@ -31,7 +47,11 @@ resource "google_compute_instance" "miniflow_gpu" {
   machine_type = "n1-standard-4"  # 4 vCPU, 15GB RAM
   zone         = var.gpu_zone      # Zone with available GPU capacity
 
-  depends_on = [google_project_service.compute]
+  depends_on = [
+    google_project_service.compute,
+    google_service_account.miniflow_gpu,
+    google_project_iam_member.miniflow_gpu_gar_reader
+  ]
 
   tags = [local.gpu_instance_name]
 
@@ -48,6 +68,12 @@ resource "google_compute_instance" "miniflow_gpu" {
   guest_accelerator {
     type  = var.gpu_type       # P100 is more available than T4
     count = var.gpu_count
+  }
+
+  # Service account for VM to pull images from GAR
+  service_account {
+    email  = google_service_account.miniflow_gpu[0].email
+    scopes = ["cloud-platform"]
   }
 
   # Required for GPU instances
