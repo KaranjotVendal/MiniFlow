@@ -1,0 +1,147 @@
+name: Destroy Staging (GCP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: "Deployment type to destroy"
+        required: true
+        default: "cpu"
+        type: choice
+        options:
+          - cpu
+          - gpu
+          - auto
+      auto_approve:
+        description: "Skip confirmation prompt"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  TF_DIR: infra/gcp/terraform
+
+permissions:
+  contents: read
+  id-token: write
+
+# Prevent concurrent operations
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment: miniflow
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.0"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Determine destroy mode
+        id: destroy-mode
+        run: |
+          DEPLOY_TYPE="${{ github.event.inputs.deployment_type }}"
+          echo "mode=$DEPLOY_TYPE" >> $GITHUB_OUTPUT
+          echo "Destroying $DEPLOY_TYPE mode resources"
+
+      - name: Terraform Destroy (CPU)
+        if: steps.destroy-mode.outputs.mode == 'cpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" == "true" ]; then
+            AUTO_APPROVE="-auto-approve"
+          else
+            AUTO_APPROVE=""
+          fi
+
+          terraform destroy \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=cpu" \
+            -var "container_image=dummy" \
+            -var "miniflow_device=cpu" \
+            $AUTO_APPROVE
+
+      - name: Terraform Destroy (GPU)
+        if: steps.destroy-mode.outputs.mode == 'gpu'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" == "true" ]; then
+            AUTO_APPROVE="-auto-approve"
+          else
+            AUTO_APPROVE=""
+          fi
+
+          terraform destroy \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=gpu" \
+            -var "gpu_zone=us-central1-b" \
+            -var "gpu_type=nvidia-tesla-p100" \
+            -var "container_image=dummy" \
+            -var "miniflow_device=cuda" \
+            $AUTO_APPROVE
+
+      - name: Terraform Destroy (Auto - Both)
+        if: steps.destroy-mode.outputs.mode == 'auto'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" == "true" ]; then
+            AUTO_APPROVE="-auto-approve"
+          else
+            AUTO_APPROVE=""
+          fi
+
+          echo "Destroying CPU resources..."
+          terraform destroy \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=cpu" \
+            -var "container_image=dummy" \
+            -var "miniflow_device=cpu" \
+            $AUTO_APPROVE || true
+
+          echo "Destroying GPU resources..."
+          terraform destroy \
+            -var "project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var "region=${{ env.GCP_REGION }}" \
+            -var "deployment_type=gpu" \
+            -var "gpu_zone=us-central1-b" \
+            -var "gpu_type=nvidia-tesla-p100" \
+            -var "container_image=dummy" \
+            -var "miniflow_device=cuda" \
+            $AUTO_APPROVE || true
+
+      - name: Output Destroy Summary
+        run: |
+          echo "## Destroy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ steps.destroy-mode.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project**: ${{ env.GCP_PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Resources have been destroyed." >> $GITHUB_STEP_SUMMARY
